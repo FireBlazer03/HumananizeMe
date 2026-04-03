@@ -14,6 +14,74 @@ const DONT_REPLACE = new Set([
 // Words already handled by the static vocab map
 const vocabKeys = new Set(vocabReplacements.map(([phrase]) => phrase.toLowerCase()));
 
+// Static offline fallback: long/formal words → shorter plain alternatives
+// Only covers single words (phrases handled by vocabMap).
+// Ordered longest-first to avoid partial collision.
+const STATIC_SIMPLIFY: [string, string][] = [
+  ['acknowledgement', 'recognition'],
+  ['categorically', 'clearly'],
+  ['circumstances', 'situation'],
+  ['collaboration', 'teamwork'],
+  ['collaborating', 'working'],
+  ['collaborators', 'partners'],
+  ['communicating', 'sharing'],
+  ['comprehension', 'grasp'],
+  ['consideration', 'thought'],
+  ['contributions', 'input'],
+  ['significantly', 'greatly'],
+  ['specifically', 'exactly'],
+  ['continuously', 'steadily'],
+  ['coordination', 'teamwork'],
+  ['demonstrated', 'showed'],
+  ['demonstrates', 'shows'],
+  ['determination', 'drive'],
+  ['disadvantages', 'downsides'],
+  ['effectiveness', 'results'],
+  ['establishment', 'creation'],
+  ['exceptionally', 'very'],
+  ['implementation', 'use'],
+  ['increasingly', 'more and more'],
+  ['independently', 'on their own'],
+  ['individually', 'each person'],
+  ['organizations', 'groups'],
+  ['organization', 'group'],
+  ['nevertheless', 'still'],
+  ['individually', 'each'],
+  ['particularly', 'especially'],
+  ['possibilities', 'options'],
+  ['practitioners', 'experts'],
+  ['predominantly', 'mostly'],
+  ['consistently', 'steadily'],
+  ['requirements', 'needs'],
+  ['relationship', 'connection'],
+  ['responsibilities', 'duties'],
+  ['approximately', 'about'],
+  ['additionally', 'also'],
+  ['consequently', 'so'],
+  ['subsequently', 'then'],
+  ['fundamental', 'basic'],
+  ['essentially', 'basically'],
+  ['potentially', 'possibly'],
+  ['established', 'set up'],
+  ['effectively', 'well'],
+  ['efficiently', 'quickly'],
+  ['challenging', 'hard'],
+  ['experienced', 'skilled'],
+  ['significant', 'major'],
+  ['responsible', 'in charge'],
+  ['immediately', 'right away'],
+  ['opportunity', 'chance'],
+  ['understand', 'grasp'],
+  ['therefore', 'so'],
+  ['successful', 'good'],
+  ['committed', 'dedicated'],
+  ['necessary', 'needed'],
+  ['currently', 'now'],
+  ['extremely', 'very'],
+  ['typically', 'usually'],
+  ['implement', 'use'],
+];
+
 // Module-level cache to avoid duplicate API calls
 const synonymCache = new Map<string, string | null>();
 
@@ -139,13 +207,19 @@ export async function applyDynamicSynonyms(text: string): Promise<string> {
     }
   }
 
-  if (candidates.size === 0) return text;
-
-  // Fetch synonyms in batches of 5
-  const synonyms = await batchFetch(Array.from(candidates), 5);
-
-  // Apply replacements
+  // Step 1: Apply static offline fallback first (always runs, no network needed)
   let result = text;
+  for (const [formal, simple] of STATIC_SIMPLIFY) {
+    // Skip if already handled by vocabMap
+    if (vocabKeys.has(formal.toLowerCase())) continue;
+    const regex = new RegExp(`\\b${formal}\\b`, 'gi');
+    result = result.replace(regex, (matched) => preserveCase(matched, simple));
+  }
+
+  if (candidates.size === 0) return result;
+
+  // Step 2: Try Datamuse API for remaining complex candidates (browser only)
+  const synonyms = await batchFetch(Array.from(candidates), 5);
   for (const [original, synonym] of synonyms) {
     if (!synonym) continue;
     const regex = new RegExp(`\\b${original}\\b`, 'gi');

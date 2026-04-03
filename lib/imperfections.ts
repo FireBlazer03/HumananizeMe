@@ -50,18 +50,14 @@ function isEligible(sentence: string, index: number): boolean {
 }
 
 export function injectImperfections(text: string, intensity: ImperfectionLevel): string {
-  console.log('[imperfections] START', { intensity, wordCount: text.split(/\s+/).length });
-
   const sentences = safeSplitSentences(text);
-  if (sentences.length < 3) {
-    console.log('[imperfections] END — too few sentences, skipping');
-    return text;
-  }
+  if (sentences.length < 3) return text;
 
   const r = RATE_TABLE[intensity];
-  const targetPer500 = { subtle: 2.5, moderate: 5, realistic: 8.5 }[intensity];
+  const targetPer500 = { subtle: 4, moderate: 8, realistic: 12 }[intensity];
   const wordCount = text.split(/\s+/).length;
-  const totalTarget = Math.max(1, Math.round((wordCount / 500) * targetPer500));
+  // Always inject at least 2 imperfections regardless of text length
+  const totalTarget = Math.max(2, Math.round((wordCount / 500) * targetPer500));
 
   // Clustering state machine — scale gap to text length
   let injected = 0;
@@ -167,6 +163,16 @@ export function injectImperfections(text: string, intensity: ImperfectionLevel):
     }
   }
 
-  console.log('[imperfections] END', { injected, totalTarget });
+  // Guarantee at least 1 space-before-punctuation even if clustering missed all sentences
+  if (injected === 0) {
+    for (let i = result.length - 1; i >= 1; i--) {
+      if (isEligible(result[i], i)) {
+        result[i] = result[i].replace(/([.!?])(\s*)$/, ' $1$2');
+        injected++;
+        break;
+      }
+    }
+  }
+
   return result.join('');
 }

@@ -206,7 +206,7 @@ function fixLanguagePatterns(text: string): string {
 
   // Remove negative parallelisms
   result = result.replace(/[Ii]t'?s not just\s+(.+?),\s*it'?s\s+(.+?)\./g, "It's $2.");
-  result = result.replace(/[Nn]ot merely\s+(.+?),\s*but\s+(.+?)\./g, '$2.');
+  result = result.replace(/[Nn]ot merely\s+(.+?),?\s*but\s+(?:also\s+)?(.+?)\./g, '$2.');
   result = result.replace(/[Nn]ot only\s+(.+?),?\s*but also\s+(.+)/g, '$1 and $2');
 
   // Fix copula avoidance
@@ -336,12 +336,44 @@ function engineerBurstiness(text: string, mode: BurstinessMode): string {
 
     let sentences = splitSentences(para);
 
-    // Calculate average sentence length
+    // Calculate average sentence length and variance
     const lengths = sentences.map(s => s.trim().split(/\s+/).length);
     const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+    const paraVariance = lengths.reduce((sum, l) => sum + Math.pow(l - avg, 2), 0) / lengths.length;
+
+    // LOW-VARIANCE INTERVENTION: if variance < 12 and we have enough sentences,
+    // force-create length diversity by merging a pair AND splitting another.
+    if (paraVariance < 12 && sentences.length >= 5 && mode !== 'mild') {
+      // Step A: Merge sentences at index 1+2 into one long sentence
+      const mergeIdx = 1;
+      if (mergeIdx + 1 < sentences.length) {
+        const s1 = sentences[mergeIdx].trim().replace(/[.!?]\s*$/, '');
+        const s2 = sentences[mergeIdx + 1].trim();
+        const s2lower = s2.charAt(0).toLowerCase() + s2.slice(1);
+        sentences[mergeIdx] = s1 + ', and ' + s2lower + ' ';
+        sentences.splice(mergeIdx + 1, 1);
+      }
+
+      // Step B: Find the longest remaining sentence and split it if it has a comma
+      let longestIdx = 0;
+      let longestLen = 0;
+      for (let k = 0; k < sentences.length; k++) {
+        const wl = sentences[k].trim().split(/\s+/).length;
+        if (wl > longestLen && k !== mergeIdx) { longestLen = wl; longestIdx = k; }
+      }
+      const ls = sentences[longestIdx].trim();
+      // Try comma split (creates a natural short sentence before comma)
+      const commaIdx = ls.indexOf(',');
+      if (commaIdx > 0 && ls.slice(0, commaIdx).split(/\s+/).length >= 5) {
+        const before = ls.slice(0, commaIdx).trim() + '.';
+        const after = ls.slice(commaIdx + 1).trim();
+        const afterCapped = after.charAt(0).toUpperCase() + after.slice(1);
+        sentences[longestIdx] = before + ' ' + afterCapped + ' ';
+      }
+    }
 
     // Find flat zone sentences (within 2 words of average)
-    const interval = mode === 'mild' ? 8 : mode === 'strong' ? 6 : 5;
+    const interval = mode === 'mild' ? 8 : mode === 'strong' ? 4 : 3;
 
     const newSentences: string[] = [];
     let flatCount = 0;
@@ -392,6 +424,8 @@ function engineerBurstiness(text: string, mode: BurstinessMode): string {
     sentences = newSentences;
 
     // Strong/aggressive: collapse adjacent short sentences (30% chance)
+    // For low-variance paragraphs raise the threshold so medium-length sentences also merge
+    const collapseThresh = paraVariance < 12 ? 16 : 8;
     if (mode === 'strong' || mode === 'aggressive') {
       const collapsed: string[] = [];
       let i = 0;
@@ -399,9 +433,9 @@ function engineerBurstiness(text: string, mode: BurstinessMode): string {
         const aLen = sentences[i].trim().split(/\s+/).length;
         if (
           i + 1 < sentences.length &&
-          aLen < 8 &&
-          sentences[i + 1].trim().split(/\s+/).length < 8 &&
-          Math.random() < 0.3
+          aLen < collapseThresh &&
+          sentences[i + 1].trim().split(/\s+/).length < collapseThresh &&
+          Math.random() < 0.4
         ) {
           const a = sentences[i].trim().replace(/[.]\s*$/, '');
           const b = sentences[i + 1].trim();
@@ -561,26 +595,82 @@ function breakLongSentences(text: string): string {
   const sentences = splitSentences(text);
   return sentences.map(sentence => {
     const words = sentence.trim().split(/\s+/);
-    if (words.length < 20) return sentence;
+    // Lower threshold: any sentence ≥15 words is a candidate
+    if (words.length < 15) return sentence;
 
-    // Find a breaking point — comma + conjunction
-    const breakPattern = /,\s+(and|but|so|yet|while|although|because|since|when|if)\s+/i;
-    const match = breakPattern.exec(sentence);
-
+    // Priority 1: comma + conjunction
+    const conjPattern = /,\s+(and|but|so|yet|while|although|because|since|when|if)\s+/i;
+    let match = conjPattern.exec(sentence);
     if (match && match.index !== undefined) {
-      const beforeBreak = sentence.slice(0, match.index);
-      const afterBreak = sentence.slice(match.index + match[0].length);
-
-      // Only split if first part has >8 words
-      if (beforeBreak.split(/\s+/).length > 8) {
-        const first = beforeBreak.trim().replace(/[,;]\s*$/, '') + '.';
-        const second = afterBreak.trim();
-        const secondCapped = second.charAt(0).toUpperCase() + second.slice(1);
-        return first + ' ' + secondCapped;
+      const before = sentence.slice(0, match.index);
+      const after = sentence.slice(match.index + match[0].length);
+      if (before.split(/\s+/).length > 6) {
+        const first = before.trim().replace(/[,;]\s*$/, '') + '.';
+        const second = after.trim();
+        return first + ' ' + second.charAt(0).toUpperCase() + second.slice(1);
       }
     }
+
+    // Priority 2: relative clause (" which ", " who ", " where ")
+    const relPattern = /\s+(which|who|where)\s+/i;
+    match = relPattern.exec(sentence);
+    if (match && match.index !== undefined && words.length >= 18) {
+      const before = sentence.slice(0, match.index);
+      const pronoun = match[1].toLowerCase();
+      const after = sentence.slice(match.index + match[0].length); // skip the pronoun
+      if (before.split(/\s+/).length > 6 && after.split(/\s+/).length > 4) {
+        const first = before.trim() + '.';
+        // Replace relative pronoun with a natural subject to avoid fragments
+        const subst = pronoun === 'who' ? 'They' : pronoun === 'where' ? 'There' : 'It';
+        return first + ' ' + subst + ' ' + after.trim();
+      }
+    }
+
+    // Priority 3: semicolon
+    const semiIdx = sentence.indexOf(';');
+    if (semiIdx > 0) {
+      const before = sentence.slice(0, semiIdx).trim();
+      const after = sentence.slice(semiIdx + 1).trim();
+      if (before.split(/\s+/).length > 4 && after.split(/\s+/).length > 4) {
+        return before + '. ' + after.charAt(0).toUpperCase() + after.slice(1);
+      }
+    }
+
     return sentence;
   }).join(' ');
+}
+
+// --- Pass: Merge Short Sentences ---
+
+function mergeShortSentences(text: string): string {
+  const sentences = splitSentences(text);
+  if (sentences.length < 3) return text;
+
+  const result: string[] = [];
+  let i = 0;
+  while (i < sentences.length) {
+    const cur = sentences[i].trim();
+    const curWords = cur.split(/\s+/).length;
+    const next = sentences[i + 1]?.trim();
+    const nextWords = next ? next.split(/\s+/).length : 99;
+
+    // Merge two consecutive short sentences (both <10 words, 40% chance)
+    if (
+      curWords < 10 && curWords > 2 &&
+      nextWords < 10 && nextWords > 2 &&
+      next && !cur.startsWith('#') && !next.startsWith('#') &&
+      Math.random() < 0.4
+    ) {
+      const merged = cur.replace(/[.!?]\s*$/, '') + ', and ' +
+        next.charAt(0).toLowerCase() + next.slice(1);
+      result.push(merged + ' ');
+      i += 2;
+    } else {
+      result.push(sentences[i]);
+      i++;
+    }
+  }
+  return result.join('');
 }
 
 // --- Pass: Vary Sentence Openers ---
@@ -592,12 +682,15 @@ const OPENER_TRANSFORMS: Array<[RegExp, string]> = [
   [/^(.+)\s+although\s+(.+)\.$/, 'Although $2, $1.'],
   [/^(.+)\s+after\s+(.+)\.$/, 'After $2, $1.'],
   [/^(.+)\s+before\s+(.+)\.$/, 'Before $2, $1.'],
+  [/^(.+)\s+since\s+(.+)\.$/, 'Since $2, $1.'],
+  [/^(.+)\s+while\s+(.+)\.$/, 'While $2, $1.'],
 ];
 
 function varyOpeners(text: string): string {
   const sentences = splitSentences(text);
   return sentences.map((s, i) => {
-    if (i % 4 !== 0) return s;
+    // Apply to every 3rd sentence instead of every 4th
+    if (i % 3 !== 0) return s;
     for (const [pattern, replacement] of OPENER_TRANSFORMS) {
       if (pattern.test(s.trim())) {
         return s.trim().replace(pattern, replacement) + ' ';
@@ -685,7 +778,7 @@ export async function humanizeText(
     { name: 'Fixing formatting...', fn: fixFormatting },
     { name: 'Fixing language patterns...', fn: fixLanguagePatterns },
     { name: 'Removing preambles...', fn: removePreambles },
-    { name: 'Restructuring sentences...', fn: (t) => varyOpeners(breakLongSentences(t)) },
+    { name: 'Restructuring sentences...', fn: (t) => mergeShortSentences(varyOpeners(breakLongSentences(t))) },
     { name: 'Engineering burstiness...', fn: (t) => engineerBurstiness(t, settings.burstinessMode) },
     { name: 'Cleaning adverbs...', fn: cleanupAdverbs },
     { name: 'Fixing sentence integrity...', fn: fixSentenceIntegrity },
