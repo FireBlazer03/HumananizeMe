@@ -20,6 +20,7 @@ const PIPELINE_LABELS = [
   'Restructuring sentences',
   'Engineering burstiness',
   'Cleaning adverbs',
+  'Fixing sentence integrity',
   'Injecting imperfections',
 ];
 

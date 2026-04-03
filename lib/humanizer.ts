@@ -607,6 +607,68 @@ function varyOpeners(text: string): string {
   }).join('');
 }
 
+// --- Final Pass: Sentence Integrity ---
+
+function fixSentenceIntegrity(text: string): string {
+  // Split into paragraphs to preserve structure
+  const paragraphs = text.split(/\n\n+/);
+
+  const fixedParagraphs = paragraphs.map(para => {
+    // Skip headings and code blocks
+    if (para.trim().startsWith('#') || para.trim().startsWith('```')) return para;
+
+    const sentences = splitSentences(para);
+    const cleaned: string[] = [];
+
+    for (let i = 0; i < sentences.length; i++) {
+      let s = sentences[i];
+      const trimmed = s.trim();
+
+      // 1. Drop sentences that are only punctuation / whitespace
+      if (/^[,;:\s]+$/.test(trimmed)) continue;
+
+      // 2. Strip any leading punctuation (commas, semicolons, periods) from sentence start
+      s = s.replace(/^\s*[,;]+\s*/, '');
+
+      // 3. Merge fragments: if <4 words and no terminal punctuation, glue to previous sentence
+      const words = s.trim().split(/\s+/).filter(Boolean);
+      if (words.length < 4 && !/[.!?]$/.test(trimmed) && cleaned.length > 0) {
+        // Append to previous sentence with a comma
+        cleaned[cleaned.length - 1] = cleaned[cleaned.length - 1].trimEnd().replace(/[.!?]\s*$/, '') + ', ' + s.trim().replace(/^[a-z]/, c => c.toLowerCase()) + '. ';
+        continue;
+      }
+
+      // 4. Ensure sentence starts with a capital letter
+      s = s.replace(/^(\s*)([a-z])/, (_m, space, c) => space + c.toUpperCase());
+
+      // 5. Fix "a [vowel-word]" → "an [vowel-word]"
+      s = s.replace(/\b(a)\s+([aeiouAEIOU]\w)/g, (_m, _a, rest) => `an ${rest}`);
+
+      cleaned.push(s);
+    }
+
+    // 6. Ensure the very first sentence of the paragraph is capitalized
+    if (cleaned.length > 0) {
+      cleaned[0] = cleaned[0].replace(/^(\s*)([a-z])/, (_m, space, c) => space + c.toUpperCase());
+    }
+
+    return cleaned.join('');
+  });
+
+  let result = fixedParagraphs.join('\n\n');
+
+  // 7. Global sweep: any remaining sentence-start lowercase after . ! ?
+  result = result.replace(/([.!?]\s+)([a-z])/g, (_m, punct, c) => punct + c.toUpperCase());
+
+  // 8. Global sweep: remove leading commas/semicolons at paragraph/line start
+  result = result.replace(/^[,;]+\s*/gm, '');
+
+  // 9. Ensure document starts with a capital
+  result = result.replace(/^\s*([a-z])/, (_m, c) => c.toUpperCase());
+
+  return result.replace(/ {2,}/g, ' ').trim();
+}
+
 // --- Orchestrator ---
 
 type PassFn = (text: string) => string | Promise<string>;
@@ -626,6 +688,7 @@ export async function humanizeText(
     { name: 'Restructuring sentences...', fn: (t) => varyOpeners(breakLongSentences(t)) },
     { name: 'Engineering burstiness...', fn: (t) => engineerBurstiness(t, settings.burstinessMode) },
     { name: 'Cleaning adverbs...', fn: cleanupAdverbs },
+    { name: 'Fixing sentence integrity...', fn: fixSentenceIntegrity },
     { name: 'Injecting imperfections...', fn: (t) => injectImperfections(t, settings.imperfectionLevel) },
   ];
 
