@@ -31,8 +31,31 @@ function countDiff(before: string, after: string): number {
 }
 
 function cleanExtraSpaces(text: string): string {
-  // Collapse multiple spaces (but preserve intentional double spaces from imperfections pass)
   return text.replace(/ {3,}/g, '  ').replace(/^ +/gm, '').replace(/ +$/gm, '').replace(/\n{3,}/g, '\n\n');
+}
+
+// Safe sentence splitter that preserves trailing text without punctuation
+function splitSentences(text: string): string[] {
+  const parts: string[] = [];
+  const regex = /[^.!?]+[.!?]+\s*/g;
+  let match;
+  let lastIndex = 0;
+  while ((match = regex.exec(text)) !== null) {
+    parts.push(match[0]);
+    lastIndex = regex.lastIndex;
+  }
+  // CRITICAL: preserve any trailing text that doesn't end with punctuation
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts;
+}
+
+// Detect if text is predominantly a numbered/bulleted list
+function isListDominatedText(text: string): boolean {
+  const listItems = (text.match(/^\d+\./gm) || []).length + (text.match(/^[-*]\s/gm) || []).length;
+  const totalLines = text.split('\n').filter(l => l.trim().length > 0).length;
+  return listItems > 3 && totalLines > 0 && listItems / totalLines > 0.4;
 }
 
 // --- Pass 1: Remove Chatbot Artifacts ---
@@ -78,7 +101,6 @@ function removeChatbotArtifacts(text: string): string {
     const regex = new RegExp(escaped + '[.!?]?\\s*', 'gi');
     result = result.replace(regex, '');
   }
-  // Clean up empty lines and double spaces left behind
   result = result.replace(/ {2,}/g, ' ').replace(/\n\s*\n\s*\n/g, '\n\n');
   return result.trim();
 }
@@ -89,6 +111,7 @@ function replaceAIVocab(text: string): string {
   let result = text;
   for (const [phrase, replacement] of vocabReplacements) {
     const escaped = escapeRegex(phrase);
+    // Use word boundaries and case-insensitive flag
     const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
     result = result.replace(regex, (match) => {
       if (replacement === '') return '';
@@ -115,9 +138,7 @@ function fixFormatting(text: string): string {
   result = result.replace(/^(#{1,6}\s+)(.+)$/gm, (_match, hashes: string, content: string) => {
     const words = content.split(' ');
     const converted = words.map((word, i) => {
-      if (i === 0) return word; // keep first word as-is
-      // Skip proper nouns (heuristic: keep words that are capitalized mid-sentence
-      // only if they look like acronyms or known proper nouns)
+      if (i === 0) return word;
       if (word === word.toUpperCase() && word.length <= 4) return word; // likely acronym
       return word.toLowerCase();
     });
@@ -127,13 +148,11 @@ function fixFormatting(text: string): string {
   // Remove excessive boldface in prose paragraphs (keep at most 1 bold per paragraph)
   const paragraphs = result.split('\n\n');
   result = paragraphs.map(para => {
-    // Skip headings, lists
     if (para.trim().startsWith('#') || para.trim().startsWith('-') || para.trim().startsWith('*') || /^\d+\./.test(para.trim())) {
       return para;
     }
     const boldMatches = para.match(/\*\*[^*]+\*\*/g);
     if (boldMatches && boldMatches.length > 1) {
-      // Keep first bold, remove the rest
       let first = true;
       return para.replace(/\*\*([^*]+)\*\*/g, (_m, inner) => {
         if (first) { first = false; return `**${inner}**`; }
@@ -143,11 +162,8 @@ function fixFormatting(text: string): string {
     return para;
   }).join('\n\n');
 
-  // Replace em dashes with comma or dash
-  result = result.replace(/\s*\u2014\s*/g, (match) => {
-    // Use comma for mid-sentence, dash otherwise
-    return ', ';
-  });
+  // Replace em dashes with comma
+  result = result.replace(/\s*\u2014\s*/g, ', ');
 
   // Convert inline-header bullet lists to prose
   const lines = result.split('\n');
@@ -156,9 +172,7 @@ function fixFormatting(text: string): string {
 
   const flushBullets = () => {
     if (bulletGroup.length >= 2) {
-      // Convert bullet group to prose
       const items = bulletGroup.map(line => {
-        // Remove "- **Word:** " pattern
         return line.replace(/^-\s+\*\*[^*]+\*\*:?\s*/, '').trim();
       });
       const prose = items.join('. ') + '.';
@@ -239,7 +253,6 @@ function fixLanguagePatterns(text: string): string {
 
   // Rule-of-three padding removal
   result = result.replace(/\b(\w{3,9}),\s+(\w{3,9}),\s+and\s+(\w{3,9})\b/g, (match, a, b, c) => {
-    // Check if all three are abstract single words (heuristic)
     const abstracts = [a, b, c];
     const allAbstract = abstracts.every((w: string) =>
       w.length < 10 && /^[a-z]+$/i.test(w)
@@ -271,20 +284,47 @@ function fixLanguagePatterns(text: string): string {
 
 // --- Pass 5: Structural Burstiness Engineering ---
 
-function splitSentences(text: string): string[] {
-  // Split by sentence-ending punctuation, preserving the punctuation
-  const raw = text.match(/[^.!?]+[.!?]+\s*/g);
-  return raw || [text];
-}
-
 function engineerBurstiness(text: string, mode: BurstinessMode): string {
+  const isList = isListDominatedText(text);
   const paragraphs = text.split(/\n\n+/);
   const processedParagraphs: string[] = [];
 
   for (let pIdx = 0; pIdx < paragraphs.length; pIdx++) {
     const para = paragraphs[pIdx];
-    // Skip headings, code blocks, lists
-    if (para.trim().startsWith('#') || para.trim().startsWith('```') || para.trim().startsWith('-') || /^\d+\./.test(para.trim())) {
+    // Skip headings, code blocks
+    if (para.trim().startsWith('#') || para.trim().startsWith('```')) {
+      processedParagraphs.push(para);
+      continue;
+    }
+
+    // For list-dominated text, process individual list items
+    if (isList && /^\d+\.\s|^[-*]\s/.test(para.trim())) {
+      // Vary the list item descriptions: some get shortened, some get a parenthetical
+      const lines = para.split('\n');
+      const processed = lines.map((line, idx) => {
+        const listMatch = line.match(/^(\d+\.\s+|[-*]\s+)(.+)/);
+        if (!listMatch) return line;
+        const [, prefix, content] = listMatch;
+        const words = content.split(/\s+/);
+
+        if (mode === 'aggressive' && idx % 3 === 2 && words.length > 8) {
+          // Shorten every 3rd item aggressively
+          return prefix + words.slice(0, Math.ceil(words.length * 0.6)).join(' ') + '.';
+        }
+        if ((mode === 'strong' || mode === 'aggressive') && idx % 4 === 1 && words.length > 5) {
+          // Add a brief parenthetical aside to every 4th item
+          const insertAt = Math.min(4, words.length - 1);
+          words.splice(insertAt, 0, '(when needed)');
+          return prefix + words.join(' ');
+        }
+        return line;
+      });
+      processedParagraphs.push(processed.join('\n'));
+      continue;
+    }
+
+    // Skip simple lists
+    if (para.trim().startsWith('-') || /^\d+\./.test(para.trim())) {
       processedParagraphs.push(para);
       continue;
     }
@@ -414,15 +454,13 @@ function engineerBurstiness(text: string, mode: BurstinessMode): string {
       gerundRun.push(i);
     } else {
       if (gerundRun.length >= 4) {
-        // Rewrite items at positions 1 and 3 (indices in the run)
         for (const pos of [1, 3]) {
           if (pos < gerundRun.length) {
             const lineIdx = gerundRun[pos];
             const line = lines[lineIdx];
-            const match = line.match(/^([-*]\s+)(\w+ing)\s+(.+)/);
-            if (match) {
-              const [, bullet, gerund, rest] = match;
-              // Convert gerund to noun form or imperative
+            const m = line.match(/^([-*]\s+)(\w+ing)\s+(.+)/);
+            if (m) {
+              const [, bullet, gerund, rest] = m;
               if (pos === 1) {
                 const noun = gerund.replace(/ing$/, '') + 'tion';
                 lines[lineIdx] = `${bullet}${rest.charAt(0).toUpperCase() + rest.slice(1)} ${noun.toLowerCase()}`;

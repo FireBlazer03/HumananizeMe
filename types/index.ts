@@ -19,6 +19,13 @@ export interface HumanizerResult {
   totalChanges: number;
 }
 
+export interface SignalBreakdown {
+  name: string;
+  score: number;
+  maxScore: number;
+  detail: string;
+}
+
 export interface DetectionReport {
   aiVocabHits: string[];
   chatbotArtifacts: string[];
@@ -30,6 +37,7 @@ export interface DetectionReport {
   hasEmojis: boolean;
   hasCurlyQuotes: boolean;
   estimatedAIScore: number;
+  signals: SignalBreakdown[];
 }
 
 export interface PipelineStep {

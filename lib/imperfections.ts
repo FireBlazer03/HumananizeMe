@@ -21,6 +21,22 @@ const TYPO_MAP: Record<string, string> = {
   ' have ': ' ahve ',
 };
 
+// Safe sentence splitter that preserves trailing text
+function safeSplitSentences(text: string): string[] {
+  const parts: string[] = [];
+  const regex = /[^.!?]+[.!?]+\s*/g;
+  let match;
+  let lastIndex = 0;
+  while ((match = regex.exec(text)) !== null) {
+    parts.push(match[0]);
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts;
+}
+
 function isEligible(sentence: string, index: number): boolean {
   if (index === 0) return false;
   const trimmed = sentence.trim();
@@ -34,8 +50,8 @@ function isEligible(sentence: string, index: number): boolean {
 }
 
 export function injectImperfections(text: string, intensity: ImperfectionLevel): string {
-  const sentences = text.match(/[^.!?]+[.!?]+\s*/g);
-  if (!sentences || sentences.length < 3) return text;
+  const sentences = safeSplitSentences(text);
+  if (sentences.length < 3) return text;
 
   const r = RATE_TABLE[intensity];
   const targetPer500 = { subtle: 2.5, moderate: 5, realistic: 8.5 }[intensity];

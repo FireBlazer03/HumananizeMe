@@ -6,26 +6,16 @@ interface DetectionReportProps {
   report: DetectionReportType | null;
 }
 
+function getScoreInfo(score: number): { label: string; color: string; textColor: string; bgColor: string } {
+  if (score >= 80) return { label: 'Almost certainly AI', color: '#e24b4a', textColor: 'text-red-700', bgColor: 'bg-red-500' };
+  if (score >= 60) return { label: 'Likely AI-generated', color: '#ef9f27', textColor: 'text-orange-700', bgColor: 'bg-orange-500' };
+  if (score >= 40) return { label: 'Possibly AI-assisted', color: '#efc027', textColor: 'text-yellow-700', bgColor: 'bg-yellow-500' };
+  if (score >= 20) return { label: 'Mostly human', color: '#97c459', textColor: 'text-lime-700', bgColor: 'bg-lime-500' };
+  return { label: 'Looks human', color: '#639922', textColor: 'text-green-700', bgColor: 'bg-green-500' };
+}
+
 function ScoreMeter({ score }: { score: number }) {
-  const getColor = () => {
-    if (score <= 30) return 'bg-green-500';
-    if (score <= 60) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  const getLabel = () => {
-    if (score <= 20) return 'Very Human';
-    if (score <= 40) return 'Mostly Human';
-    if (score <= 60) return 'Mixed';
-    if (score <= 80) return 'Likely AI';
-    return 'Very AI-like';
-  };
-
-  const getTextColor = () => {
-    if (score <= 30) return 'text-green-700';
-    if (score <= 60) return 'text-yellow-700';
-    return 'text-red-700';
-  };
+  const info = getScoreInfo(score);
 
   return (
     <div className="text-center">
@@ -37,19 +27,19 @@ function ScoreMeter({ score }: { score: number }) {
             cy="50"
             r="42"
             fill="none"
-            stroke={score <= 30 ? '#22c55e' : score <= 60 ? '#eab308' : '#ef4444'}
+            stroke={info.color}
             strokeWidth="8"
             strokeDasharray={`${(score / 100) * 264} 264`}
             strokeLinecap="round"
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className={`text-xl font-bold ${getTextColor()}`}>{score}</span>
+          <span className={`text-xl font-bold ${info.textColor}`}>{score}</span>
         </div>
       </div>
-      <div className={`text-xs font-semibold ${getTextColor()}`}>{getLabel()}</div>
+      <div className={`text-xs font-semibold ${info.textColor}`}>{info.label}</div>
       <div className="mt-1 w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-        <div className={`h-full ${getColor()} transition-all duration-500`} style={{ width: `${score}%` }} />
+        <div className={`h-full ${info.bgColor} transition-all duration-500`} style={{ width: `${score}%` }} />
       </div>
     </div>
   );
@@ -60,6 +50,24 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
     <div className="p-3 bg-gray-50 rounded-lg text-center">
       <div className="text-lg font-bold text-gray-800">{value}</div>
       <div className="text-xs text-gray-500">{label}</div>
+    </div>
+  );
+}
+
+function SignalBar({ name, score, maxScore, detail }: { name: string; score: number; maxScore: number; detail: string }) {
+  const pct = maxScore > 0 ? Math.max(0, (score / maxScore) * 100) : 0;
+  const barColor = score <= 0 ? 'bg-green-400' : score < maxScore * 0.5 ? 'bg-yellow-400' : 'bg-red-400';
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium text-gray-700">{name}</span>
+        <span className="text-gray-500">+{Math.max(0, score)}/{maxScore}</span>
+      </div>
+      <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+        <div className={`h-full ${barColor} transition-all duration-300`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="text-[10px] text-gray-400">{detail}</div>
     </div>
   );
 }
@@ -78,9 +86,25 @@ export default function DetectionReport({ report }: DetectionReportProps) {
         <StatCard label="Chatbot Artifacts" value={report.chatbotArtifacts.length} />
         <StatCard label="Passive Voice" value={report.passiveVoiceCount} />
         <StatCard label="Burstiness" value={report.burstinessLabel} />
-        <StatCard label="Em Dashes" value={report.emDashCount} />
-        <StatCard label="Inflation Phrases" value={report.significanceInflation} />
       </div>
+
+      {/* Signal Breakdown */}
+      {report.signals && report.signals.length > 0 && (
+        <div>
+          <h4 className="text-xs font-medium text-gray-500 mb-2">Signal Breakdown</h4>
+          <div className="space-y-2.5">
+            {report.signals.map((signal, i) => (
+              <SignalBar
+                key={i}
+                name={signal.name}
+                score={signal.score}
+                maxScore={signal.maxScore}
+                detail={signal.detail}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {report.aiVocabHits.length > 0 && (
         <div>
