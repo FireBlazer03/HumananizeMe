@@ -1,0 +1,531 @@
+import { HumanizerSettings, HumanizerResult, PassResult, BurstinessMode } from '@/types';
+import { vocabReplacements } from './vocabMap';
+import { injectImperfections } from './imperfections';
+
+// --- Helpers ---
+
+function preserveCase(original: string, replacement: string): string {
+  if (!replacement) return replacement;
+  if (original === original.toUpperCase() && original.length > 1) {
+    return replacement.toUpperCase();
+  }
+  if (original[0] === original[0].toUpperCase()) {
+    return replacement[0].toUpperCase() + replacement.slice(1);
+  }
+  return replacement;
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function countDiff(before: string, after: string): number {
+  const bWords = before.split(/\s+/);
+  const aWords = after.split(/\s+/);
+  let changes = 0;
+  const maxLen = Math.max(bWords.length, aWords.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (bWords[i] !== aWords[i]) changes++;
+  }
+  return changes;
+}
+
+function cleanExtraSpaces(text: string): string {
+  // Collapse multiple spaces (but preserve intentional double spaces from imperfections pass)
+  return text.replace(/ {3,}/g, '  ').replace(/^ +/gm, '').replace(/ +$/gm, '').replace(/\n{3,}/g, '\n\n');
+}
+
+// --- Pass 1: Remove Chatbot Artifacts ---
+
+const CHATBOT_PHRASES = [
+  "I hope this helps",
+  "Let me know if you have any questions",
+  "Of course!",
+  "Certainly!",
+  "Great question!",
+  "You're absolutely right!",
+  "Here is an overview of",
+  "Here is a summary of",
+  "Would you like me to expand on any section?",
+  "Would you like me to expand on any section",
+  "Feel free to ask",
+  "As of my knowledge cutoff",
+  "While specific details are limited in available sources",
+  "Based on available information",
+  "It is important to note that",
+  "It is worth noting that",
+  "Needless to say,",
+  "Needless to say",
+  "It goes without saying that",
+  "In conclusion,",
+  "In conclusion",
+  "To summarize,",
+  "To summarize",
+  "As we look to the future,",
+  "As we look to the future",
+  "The future looks bright.",
+  "The future looks bright",
+  "Exciting times lie ahead.",
+  "Exciting times lie ahead",
+  "This represents a major step in the right direction.",
+  "This represents a major step in the right direction",
+];
+
+function removeChatbotArtifacts(text: string): string {
+  let result = text;
+  for (const phrase of CHATBOT_PHRASES) {
+    const escaped = escapeRegex(phrase);
+    const regex = new RegExp(escaped + '[.!?]?\\s*', 'gi');
+    result = result.replace(regex, '');
+  }
+  // Clean up empty lines and double spaces left behind
+  result = result.replace(/ {2,}/g, ' ').replace(/\n\s*\n\s*\n/g, '\n\n');
+  return result.trim();
+}
+
+// --- Pass 2: AI Vocabulary Replacement ---
+
+function replaceAIVocab(text: string): string {
+  let result = text;
+  for (const [phrase, replacement] of vocabReplacements) {
+    const escaped = escapeRegex(phrase);
+    const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+    result = result.replace(regex, (match) => {
+      if (replacement === '') return '';
+      return preserveCase(match, replacement);
+    });
+  }
+  result = result.replace(/ {2,}/g, ' ');
+  return result;
+}
+
+// --- Pass 3: Fix Formatting ---
+
+function fixFormatting(text: string): string {
+  let result = text;
+
+  // Remove emoji characters
+  result = result.replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{27BF}]/gu, '');
+
+  // Replace curly/smart quotes with straight quotes
+  result = result.replace(/[\u201C\u201D]/g, '"');
+  result = result.replace(/[\u2018\u2019]/g, "'");
+
+  // Convert heading title case to sentence case
+  result = result.replace(/^(#{1,6}\s+)(.+)$/gm, (_match, hashes: string, content: string) => {
+    const words = content.split(' ');
+    const converted = words.map((word, i) => {
+      if (i === 0) return word; // keep first word as-is
+      // Skip proper nouns (heuristic: keep words that are capitalized mid-sentence
+      // only if they look like acronyms or known proper nouns)
+      if (word === word.toUpperCase() && word.length <= 4) return word; // likely acronym
+      return word.toLowerCase();
+    });
+    return hashes + converted.join(' ');
+  });
+
+  // Remove excessive boldface in prose paragraphs (keep at most 1 bold per paragraph)
+  const paragraphs = result.split('\n\n');
+  result = paragraphs.map(para => {
+    // Skip headings, lists
+    if (para.trim().startsWith('#') || para.trim().startsWith('-') || para.trim().startsWith('*') || /^\d+\./.test(para.trim())) {
+      return para;
+    }
+    const boldMatches = para.match(/\*\*[^*]+\*\*/g);
+    if (boldMatches && boldMatches.length > 1) {
+      // Keep first bold, remove the rest
+      let first = true;
+      return para.replace(/\*\*([^*]+)\*\*/g, (_m, inner) => {
+        if (first) { first = false; return `**${inner}**`; }
+        return inner;
+      });
+    }
+    return para;
+  }).join('\n\n');
+
+  // Replace em dashes with comma or dash
+  result = result.replace(/\s*\u2014\s*/g, (match) => {
+    // Use comma for mid-sentence, dash otherwise
+    return ', ';
+  });
+
+  // Convert inline-header bullet lists to prose
+  const lines = result.split('\n');
+  const converted: string[] = [];
+  let bulletGroup: string[] = [];
+
+  const flushBullets = () => {
+    if (bulletGroup.length >= 2) {
+      // Convert bullet group to prose
+      const items = bulletGroup.map(line => {
+        // Remove "- **Word:** " pattern
+        return line.replace(/^-\s+\*\*[^*]+\*\*:?\s*/, '').trim();
+      });
+      const prose = items.join('. ') + '.';
+      converted.push(prose);
+    } else {
+      converted.push(...bulletGroup);
+    }
+    bulletGroup = [];
+  };
+
+  for (const line of lines) {
+    if (/^-\s+\*\*.+\*\*:/.test(line.trim())) {
+      bulletGroup.push(line);
+    } else {
+      if (bulletGroup.length > 0) flushBullets();
+      converted.push(line);
+    }
+  }
+  if (bulletGroup.length > 0) flushBullets();
+
+  result = converted.join('\n');
+  result = result.replace(/ {2,}/g, ' ');
+  return result;
+}
+
+// --- Pass 4: Fix Language Patterns ---
+
+function fixLanguagePatterns(text: string): string {
+  let result = text;
+
+  // Remove negative parallelisms
+  result = result.replace(/[Ii]t'?s not just\s+(.+?),\s*it'?s\s+(.+?)\./g, "It's $2.");
+  result = result.replace(/[Nn]ot merely\s+(.+?),\s*but\s+(.+?)\./g, '$2.');
+  result = result.replace(/[Nn]ot only\s+(.+?),?\s*but also\s+(.+)/g, '$1 and $2');
+
+  // Fix copula avoidance
+  const copulaPatterns: [RegExp, string][] = [
+    [/\bserves as a\b/gi, 'is a'],
+    [/\bfunctions as a\b/gi, 'is a'],
+    [/\bacts as a\b/gi, 'is a'],
+    [/\bstands as a\b/gi, 'is a'],
+  ];
+  for (const [pattern, replacement] of copulaPatterns) {
+    result = result.replace(pattern, (match) => preserveCase(match.split(' ')[0], replacement));
+  }
+
+  // Significance inflation
+  result = result.replace(/marking a pivotal moment in the evolution of\s*/gi, '');
+  result = result.replace(/\bindelible mark\b/gi, 'lasting impact');
+  result = result.replace(/\bsetting the stage for\b/gi, 'leading to');
+  result = result.replace(/\breflects broader trends\b/gi, '');
+  result = result.replace(/\bkey turning point\b/gi, 'turning point');
+  result = result.replace(/\bevolving landscape of\s*/gi, '');
+  result = result.replace(/\bdeeply rooted in\b/gi, 'based in');
+
+  // Transition word replacement
+  const transitions: [RegExp, string[]][] = [
+    [/^Furthermore,?\s*/gim, ['Also, ', '']],
+    [/^Moreover,?\s*/gim, ['And ', '']],
+    [/^Consequently,?\s*/gim, ['So, ']],
+    [/^Subsequently,?\s*/gim, ['Then, ']],
+    [/^In addition,?\s*/gim, ['Also, ']],
+    [/^Additionally,?\s*/gim, ['']],
+    [/^Nonetheless,?\s*/gim, ['Still, ']],
+    [/^Nevertheless,?\s*/gim, ['Even so, ']],
+  ];
+  for (const [pattern, replacements] of transitions) {
+    result = result.replace(pattern, () => {
+      return replacements[Math.floor(Math.random() * replacements.length)];
+    });
+  }
+
+  // Remove filler openers
+  result = result.replace(/^At its core,?\s*/gim, '');
+  result = result.replace(/^Essentially,?\s*/gim, '');
+  result = result.replace(/^It is important to note that\s*/gim, '');
+  result = result.replace(/^In order to understand .+?,\s*we must first look at\s*/gim, '');
+
+  // Rule-of-three padding removal
+  result = result.replace(/\b(\w{3,9}),\s+(\w{3,9}),\s+and\s+(\w{3,9})\b/g, (match, a, b, c) => {
+    // Check if all three are abstract single words (heuristic)
+    const abstracts = [a, b, c];
+    const allAbstract = abstracts.every((w: string) =>
+      w.length < 10 && /^[a-z]+$/i.test(w)
+    );
+    if (allAbstract) {
+      return `${a} and ${b}`;
+    }
+    return match;
+  });
+
+  // Remove excessive hedging
+  result = result.replace(/\bcould potentially possibly\b/gi, 'might');
+  result = result.replace(/\bit could be argued that it might\b/gi, 'it may');
+  result = result.replace(/\bseems to potentially suggest\b/gi, 'suggests');
+
+  // Fix generic positive conclusions
+  const genericConclusions = [
+    /[^.]*\bfuture looks bright\b[^.]*\.\s*/gi,
+    /[^.]*\bexciting times\b[^.]*\.\s*/gi,
+    /[^.]*\bjourney toward excellence\b[^.]*\.\s*/gi,
+  ];
+  for (const pattern of genericConclusions) {
+    result = result.replace(pattern, '');
+  }
+
+  result = result.replace(/ {2,}/g, ' ');
+  return result;
+}
+
+// --- Pass 5: Structural Burstiness Engineering ---
+
+function splitSentences(text: string): string[] {
+  // Split by sentence-ending punctuation, preserving the punctuation
+  const raw = text.match(/[^.!?]+[.!?]+\s*/g);
+  return raw || [text];
+}
+
+function engineerBurstiness(text: string, mode: BurstinessMode): string {
+  const paragraphs = text.split(/\n\n+/);
+  const processedParagraphs: string[] = [];
+
+  for (let pIdx = 0; pIdx < paragraphs.length; pIdx++) {
+    const para = paragraphs[pIdx];
+    // Skip headings, code blocks, lists
+    if (para.trim().startsWith('#') || para.trim().startsWith('```') || para.trim().startsWith('-') || /^\d+\./.test(para.trim())) {
+      processedParagraphs.push(para);
+      continue;
+    }
+
+    let sentences = splitSentences(para);
+
+    // Calculate average sentence length
+    const lengths = sentences.map(s => s.trim().split(/\s+/).length);
+    const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+
+    // Find flat zone sentences (within 2 words of average)
+    const interval = mode === 'mild' ? 8 : mode === 'strong' ? 6 : 5;
+
+    const newSentences: string[] = [];
+    let flatCount = 0;
+
+    for (let i = 0; i < sentences.length; i++) {
+      const len = sentences[i].trim().split(/\s+/).length;
+      const inFlatZone = Math.abs(len - avg) <= 2;
+
+      if (inFlatZone) {
+        flatCount++;
+        if (flatCount % interval === 0 && len >= 15) {
+          // Split at conjunction
+          const conjunctions = [', and ', ', but ', '; '];
+          let didSplit = false;
+          for (const conj of conjunctions) {
+            const idx = sentences[i].indexOf(conj);
+            if (idx > 0) {
+              const first = sentences[i].slice(0, idx).trim() + '.';
+              let second = sentences[i].slice(idx + conj.length).trim();
+              second = second.charAt(0).toUpperCase() + second.slice(1);
+              if (!second.match(/[.!?]\s*$/)) second += '.';
+              newSentences.push(first + ' ');
+
+              if (mode === 'strong' || mode === 'aggressive') {
+                // Insert a punchy follow-up
+                const words = second.split(/\s+/);
+                if (words.length > 3) {
+                  const punchy = words.slice(0, 2).join(' ').replace(/[.,;:]$/, '') + '.';
+                  newSentences.push(punchy + ' ');
+                }
+              }
+              newSentences.push(second + ' ');
+              didSplit = true;
+              break;
+            }
+          }
+          if (!didSplit) {
+            newSentences.push(sentences[i]);
+          }
+        } else {
+          newSentences.push(sentences[i]);
+        }
+      } else {
+        newSentences.push(sentences[i]);
+      }
+    }
+
+    sentences = newSentences;
+
+    // Strong/aggressive: collapse adjacent short sentences (30% chance)
+    if (mode === 'strong' || mode === 'aggressive') {
+      const collapsed: string[] = [];
+      let i = 0;
+      while (i < sentences.length) {
+        const aLen = sentences[i].trim().split(/\s+/).length;
+        if (
+          i + 1 < sentences.length &&
+          aLen < 8 &&
+          sentences[i + 1].trim().split(/\s+/).length < 8 &&
+          Math.random() < 0.3
+        ) {
+          const a = sentences[i].trim().replace(/[.]\s*$/, '');
+          const b = sentences[i + 1].trim();
+          collapsed.push(a + '; ' + b.charAt(0).toLowerCase() + b.slice(1) + ' ');
+          i += 2;
+        } else {
+          collapsed.push(sentences[i]);
+          i++;
+        }
+      }
+      sentences = collapsed;
+    }
+
+    processedParagraphs.push(sentences.join('').trim());
+  }
+
+  // Aggressive: move last sentence to its own paragraph every 5th paragraph
+  if (mode === 'aggressive') {
+    const final: string[] = [];
+    for (let i = 0; i < processedParagraphs.length; i++) {
+      if ((i + 1) % 5 === 0) {
+        const para = processedParagraphs[i];
+        const sents = splitSentences(para);
+        if (sents.length > 2) {
+          const last = sents.pop()!;
+          final.push(sents.join('').trim());
+          final.push(last.trim());
+        } else {
+          final.push(para);
+        }
+      } else {
+        final.push(processedParagraphs[i]);
+      }
+    }
+    return final.join('\n\n');
+  }
+
+  let result = processedParagraphs.join('\n\n');
+
+  // Active voice conversion (heuristic)
+  result = result.replace(
+    /\b(The\s+\w+)\s+(was|were|is|are|been)\s+(\w+ed)\s+by\s+([\w\s]+?)([.,;!?])/gi,
+    (_match, _subject, _aux, verb, agent, punct) => {
+      const cleanAgent = agent.trim();
+      const activeVerb = verb.replace(/ed$/, 'ed');
+      return `${cleanAgent} ${activeVerb} ${_subject.toLowerCase()}${punct}`;
+    }
+  );
+
+  // Syntactic parallelism disruption in lists
+  const lines = result.split('\n');
+  let gerundRun: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (/^[-*]\s+\w+ing\b/.test(lines[i].trim())) {
+      gerundRun.push(i);
+    } else {
+      if (gerundRun.length >= 4) {
+        // Rewrite items at positions 1 and 3 (indices in the run)
+        for (const pos of [1, 3]) {
+          if (pos < gerundRun.length) {
+            const lineIdx = gerundRun[pos];
+            const line = lines[lineIdx];
+            const match = line.match(/^([-*]\s+)(\w+ing)\s+(.+)/);
+            if (match) {
+              const [, bullet, gerund, rest] = match;
+              // Convert gerund to noun form or imperative
+              if (pos === 1) {
+                const noun = gerund.replace(/ing$/, '') + 'tion';
+                lines[lineIdx] = `${bullet}${rest.charAt(0).toUpperCase() + rest.slice(1)} ${noun.toLowerCase()}`;
+              } else {
+                lines[lineIdx] = `${bullet}Use ${rest}`;
+              }
+            }
+          }
+        }
+      }
+      gerundRun = [];
+      if (/^[-*]\s+\w+ing\b/.test(lines[i].trim())) {
+        gerundRun.push(i);
+      }
+    }
+  }
+  result = lines.join('\n');
+
+  return result;
+}
+
+// --- Pass 6: Adverb Cleanup ---
+
+const ADVERB_VERB_REPLACEMENTS: [RegExp, string][] = [
+  [/\bsignificantly improve\b/gi, 'improve'],
+  [/\bgreatly enhance\b/gi, 'enhance'],
+  [/\bdeeply impact\b/gi, 'affect'],
+  [/\bhighly effective\b/gi, 'effective'],
+  [/\brapidly accelerate\b/gi, 'accelerate'],
+  [/\bstrongly recommend\b/gi, 'recommend'],
+  [/\bclearly demonstrate\b/gi, 'show'],
+  [/\beffectively utilize\b/gi, 'use'],
+  [/\bactively engage\b/gi, 'engage'],
+  [/\bdirectly address\b/gi, 'address'],
+  [/\bfundamentally change\b/gi, 'change'],
+  [/\bpositively impact\b/gi, 'help'],
+  [/\bnegatively impact\b/gi, 'hurt'],
+  [/\bsignificantly increase\b/gi, 'increase'],
+  [/\bsignificantly decrease\b/gi, 'decrease'],
+];
+
+const FILLER_ADVERBS = /\b(incredibly|extremely|absolutely|completely|totally|obviously)\s+/gi;
+const SENTENCE_START_ADVERBS = /^(Clearly,?\s*)/gim;
+
+function cleanupAdverbs(text: string): string {
+  let result = text;
+
+  for (const [pattern, replacement] of ADVERB_VERB_REPLACEMENTS) {
+    result = result.replace(pattern, (match) => preserveCase(match.split(' ')[0], replacement));
+  }
+
+  result = result.replace(FILLER_ADVERBS, '');
+  result = result.replace(SENTENCE_START_ADVERBS, '');
+  result = result.replace(/ {2,}/g, ' ');
+  return result;
+}
+
+// --- Orchestrator ---
+
+type PassFn = (text: string) => string;
+
+export async function humanizeText(
+  text: string,
+  settings: HumanizerSettings,
+  onPassComplete?: (step: number) => void
+): Promise<HumanizerResult> {
+  const passes: { name: string; fn: PassFn }[] = [
+    { name: 'Removing artifacts...', fn: removeChatbotArtifacts },
+    { name: 'Replacing vocabulary...', fn: replaceAIVocab },
+    { name: 'Fixing formatting...', fn: fixFormatting },
+    { name: 'Fixing language patterns...', fn: fixLanguagePatterns },
+    { name: 'Engineering burstiness...', fn: (t) => engineerBurstiness(t, settings.burstinessMode) },
+    { name: 'Cleaning adverbs...', fn: cleanupAdverbs },
+    { name: 'Injecting imperfections...', fn: (t) => injectImperfections(t, settings.imperfectionLevel) },
+  ];
+
+  const results: PassResult[] = [];
+  let currentText = text;
+
+  for (let i = 0; i < passes.length; i++) {
+    const pass = passes[i];
+    onPassComplete?.(i);
+
+    // Yield to UI thread
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    const before = currentText;
+    currentText = pass.fn(currentText);
+    currentText = cleanExtraSpaces(currentText);
+
+    results.push({
+      passName: pass.name,
+      text: currentText,
+      changesCount: countDiff(before, currentText),
+    });
+  }
+
+  onPassComplete?.(passes.length);
+
+  return {
+    originalText: text,
+    finalText: currentText,
+    passes: results,
+    totalChanges: results.reduce((sum, r) => sum + r.changesCount, 0),
+  };
+}
