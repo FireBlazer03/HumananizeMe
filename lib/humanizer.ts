@@ -229,16 +229,16 @@ function fixLanguagePatterns(text: string): string {
   result = result.replace(/\bevolving landscape of\s*/gi, '');
   result = result.replace(/\bdeeply rooted in\b/gi, 'based in');
 
-  // Transition word replacement
+  // Transition word replacement — match at line start OR after sentence boundary
   const transitions: [RegExp, string[]][] = [
-    [/^Furthermore,?\s*/gim, ['Also, ', '']],
-    [/^Moreover,?\s*/gim, ['And ', '']],
-    [/^Consequently,?\s*/gim, ['So, ']],
-    [/^Subsequently,?\s*/gim, ['Then, ']],
-    [/^In addition,?\s*/gim, ['Also, ']],
-    [/^Additionally,?\s*/gim, ['']],
-    [/^Nonetheless,?\s*/gim, ['Still, ']],
-    [/^Nevertheless,?\s*/gim, ['Even so, ']],
+    [/(?:^|(?<=\.\s))Furthermore,?\s*/gim, ['Also, ', '']],
+    [/(?:^|(?<=\.\s))Moreover,?\s*/gim, ['And ', '']],
+    [/(?:^|(?<=\.\s))Consequently,?\s*/gim, ['So, ']],
+    [/(?:^|(?<=\.\s))Subsequently,?\s*/gim, ['Then, ']],
+    [/(?:^|(?<=\.\s))In addition,?\s*/gim, ['Also, ']],
+    [/(?:^|(?<=\.\s))Additionally,?\s*/gim, ['']],
+    [/(?:^|(?<=\.\s))Nonetheless,?\s*/gim, ['Still, ']],
+    [/(?:^|(?<=\.\s))Nevertheless,?\s*/gim, ['Even so, ']],
   ];
   for (const [pattern, replacements] of transitions) {
     result = result.replace(pattern, () => {
@@ -246,11 +246,11 @@ function fixLanguagePatterns(text: string): string {
     });
   }
 
-  // Remove filler openers
-  result = result.replace(/^At its core,?\s*/gim, '');
-  result = result.replace(/^Essentially,?\s*/gim, '');
-  result = result.replace(/^It is important to note that\s*/gim, '');
-  result = result.replace(/^In order to understand .+?,\s*we must first look at\s*/gim, '');
+  // Remove filler openers — match at line start OR after sentence boundary
+  result = result.replace(/(?:^|(?<=\.\s))At its core,?\s*/gim, '');
+  result = result.replace(/(?:^|(?<=\.\s))Essentially,?\s*/gim, '');
+  result = result.replace(/(?:^|(?<=\.\s))It is important to note that\s*/gim, '');
+  result = result.replace(/(?:^|(?<=\.\s))In order to understand .+?,\s*we must first look at\s*/gim, '');
 
   // Rule-of-three padding removal
   result = result.replace(/\b(\w{3,9}),\s+(\w{3,9}),\s+and\s+(\w{3,9})\b/g, (match, a, b, c) => {
@@ -278,6 +278,10 @@ function fixLanguagePatterns(text: string): string {
   for (const pattern of genericConclusions) {
     result = result.replace(pattern, '');
   }
+
+  // Clean up orphaned commas/punctuation at sentence starts (e.g. after transition removal)
+  result = result.replace(/\.\s*,\s*/g, '. ');
+  result = result.replace(/([.!?])\s+,\s+/g, '$1 ');
 
   result = result.replace(/ {2,}/g, ' ');
   return result;

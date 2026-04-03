@@ -63,11 +63,13 @@ export function injectImperfections(text: string, intensity: ImperfectionLevel):
   const wordCount = text.split(/\s+/).length;
   const totalTarget = Math.max(1, Math.round((wordCount / 500) * targetPer500));
 
-  // Clustering state machine
+  // Clustering state machine — scale gap to text length
   let injected = 0;
   let sinceLastCluster = 0;
   let clusterRemaining = 0;
-  const nextClusterGap = () => 8 + Math.floor(Math.random() * 8); // 8-15
+  const baseGap = sentences.length < 12 ? 2 : 8;
+  const gapRange = sentences.length < 12 ? 3 : 8;
+  const nextClusterGap = () => baseGap + Math.floor(Math.random() * gapRange);
   let gapTarget = nextClusterGap();
 
   const result = sentences.map((s, i) => {
@@ -86,14 +88,18 @@ export function injectImperfections(text: string, intensity: ImperfectionLevel):
     let modified = s;
     let didInject = false;
 
+    // When inside a cluster, boost the rate to ensure imperfections actually land
+    const clusterBoost = clusterRemaining > 0 ? 2.5 : 1;
+    const effectiveRate = Math.min(r.spacePunct * clusterBoost, 0.85);
+
     // Space before sentence-ending punctuation
-    if (Math.random() < r.spacePunct) {
+    if (Math.random() < effectiveRate) {
       modified = modified.replace(/([.!?])(\s*)$/, ' $1$2');
       didInject = true;
     }
 
     // Space before a comma
-    if (!didInject && Math.random() < r.spacePunct * 0.6) {
+    if (!didInject && Math.random() < effectiveRate * 0.6) {
       const commaIdx = modified.indexOf(',');
       if (commaIdx > 1 && modified[commaIdx - 1] !== ' ' && modified[commaIdx - 1] !== '\n') {
         modified = modified.slice(0, commaIdx) + ' ,' + modified.slice(commaIdx + 1);
@@ -102,7 +108,7 @@ export function injectImperfections(text: string, intensity: ImperfectionLevel):
     }
 
     // Double space
-    if (!didInject && Math.random() < r.doubleSpace) {
+    if (!didInject && Math.random() < r.doubleSpace * clusterBoost) {
       const words = modified.split(' ');
       if (words.length > 4) {
         const idx = 1 + Math.floor(Math.random() * (words.length - 2));
