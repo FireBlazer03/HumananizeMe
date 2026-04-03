@@ -1,6 +1,7 @@
 import { HumanizerSettings, HumanizerResult, PassResult, BurstinessMode } from '@/types';
 import { vocabReplacements } from './vocabMap';
 import { injectImperfections } from './imperfections';
+import { applyDynamicSynonyms } from './synonyms';
 
 // --- Helpers ---
 
@@ -518,9 +519,93 @@ function cleanupAdverbs(text: string): string {
   return result;
 }
 
+// --- Pass: Remove Preambles ---
+
+const PREAMBLE_PATTERNS: RegExp[] = [
+  /^It is important to note that\s+/gim,
+  /^It is worth noting that\s+/gim,
+  /^It should be mentioned that\s+/gim,
+  /^It is clear that\s+/gim,
+  /^It is evident that\s+/gim,
+  /^One must consider that\s+/gim,
+  /^We can see that\s+/gim,
+  /^In terms of this,\s*/gim,
+  /^With regard to this,\s*/gim,
+  /^In light of the above,\s*/gim,
+  /^As previously mentioned,\s*/gim,
+  /^As noted above,\s*/gim,
+  /^At its core,\s*/gim,
+  /^At the end of the day,\s*/gim,
+  /^Needless to say,\s*/gim,
+];
+
+function removePreambles(text: string): string {
+  let result = text;
+  for (const pattern of PREAMBLE_PATTERNS) {
+    result = result.replace(new RegExp(pattern.source, 'gim'), '');
+  }
+  // Capitalize first letter of sentences that now start lowercase
+  result = result.replace(/\.\s+([a-z])/g, (_m, c) => '. ' + c.toUpperCase());
+  result = result.replace(/^\s*([a-z])/, (_m, c) => c.toUpperCase());
+  result = result.replace(/ {2,}/g, ' ');
+  return result;
+}
+
+// --- Pass: Break Long Sentences ---
+
+function breakLongSentences(text: string): string {
+  const sentences = splitSentences(text);
+  return sentences.map(sentence => {
+    const words = sentence.trim().split(/\s+/);
+    if (words.length < 20) return sentence;
+
+    // Find a breaking point — comma + conjunction
+    const breakPattern = /,\s+(and|but|so|yet|while|although|because|since|when|if)\s+/i;
+    const match = breakPattern.exec(sentence);
+
+    if (match && match.index !== undefined) {
+      const beforeBreak = sentence.slice(0, match.index);
+      const afterBreak = sentence.slice(match.index + match[0].length);
+
+      // Only split if first part has >8 words
+      if (beforeBreak.split(/\s+/).length > 8) {
+        const first = beforeBreak.trim().replace(/[,;]\s*$/, '') + '.';
+        const second = afterBreak.trim();
+        const secondCapped = second.charAt(0).toUpperCase() + second.slice(1);
+        return first + ' ' + secondCapped;
+      }
+    }
+    return sentence;
+  }).join(' ');
+}
+
+// --- Pass: Vary Sentence Openers ---
+
+const OPENER_TRANSFORMS: Array<[RegExp, string]> = [
+  [/^(.+)\s+when\s+(.+)\.$/, 'When $2, $1.'],
+  [/^(.+)\s+if\s+(.+)\.$/, 'If $2, $1.'],
+  [/^(.+)\s+because\s+(.+)\.$/, 'Because $2, $1.'],
+  [/^(.+)\s+although\s+(.+)\.$/, 'Although $2, $1.'],
+  [/^(.+)\s+after\s+(.+)\.$/, 'After $2, $1.'],
+  [/^(.+)\s+before\s+(.+)\.$/, 'Before $2, $1.'],
+];
+
+function varyOpeners(text: string): string {
+  const sentences = splitSentences(text);
+  return sentences.map((s, i) => {
+    if (i % 4 !== 0) return s;
+    for (const [pattern, replacement] of OPENER_TRANSFORMS) {
+      if (pattern.test(s.trim())) {
+        return s.trim().replace(pattern, replacement) + ' ';
+      }
+    }
+    return s;
+  }).join('');
+}
+
 // --- Orchestrator ---
 
-type PassFn = (text: string) => string;
+type PassFn = (text: string) => string | Promise<string>;
 
 export async function humanizeText(
   text: string,
@@ -530,8 +615,11 @@ export async function humanizeText(
   const passes: { name: string; fn: PassFn }[] = [
     { name: 'Removing artifacts...', fn: removeChatbotArtifacts },
     { name: 'Replacing vocabulary...', fn: replaceAIVocab },
+    { name: 'Applying dynamic synonyms...', fn: applyDynamicSynonyms },
     { name: 'Fixing formatting...', fn: fixFormatting },
     { name: 'Fixing language patterns...', fn: fixLanguagePatterns },
+    { name: 'Removing preambles...', fn: removePreambles },
+    { name: 'Restructuring sentences...', fn: (t) => varyOpeners(breakLongSentences(t)) },
     { name: 'Engineering burstiness...', fn: (t) => engineerBurstiness(t, settings.burstinessMode) },
     { name: 'Cleaning adverbs...', fn: cleanupAdverbs },
     { name: 'Injecting imperfections...', fn: (t) => injectImperfections(t, settings.imperfectionLevel) },
@@ -548,7 +636,7 @@ export async function humanizeText(
     await new Promise(resolve => setTimeout(resolve, 150));
 
     const before = currentText;
-    currentText = pass.fn(currentText);
+    currentText = await pass.fn(currentText);
     currentText = cleanExtraSpaces(currentText);
 
     results.push({

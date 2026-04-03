@@ -13,8 +13,11 @@ import ProgressSteps from '@/components/ProgressSteps';
 const PIPELINE_LABELS = [
   'Removing artifacts',
   'Replacing vocabulary',
+  'Applying synonyms',
   'Fixing formatting',
   'Fixing language patterns',
+  'Removing preambles',
+  'Restructuring sentences',
   'Engineering burstiness',
   'Cleaning adverbs',
   'Injecting imperfections',

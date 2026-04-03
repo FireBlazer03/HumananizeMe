@@ -7,40 +7,40 @@ interface DetectionReportProps {
 }
 
 function getScoreInfo(score: number): { label: string; color: string; textColor: string; bgColor: string } {
-  if (score >= 80) return { label: 'Almost certainly AI', color: '#e24b4a', textColor: 'text-red-700', bgColor: 'bg-red-500' };
-  if (score >= 60) return { label: 'Likely AI-generated', color: '#ef9f27', textColor: 'text-orange-700', bgColor: 'bg-orange-500' };
-  if (score >= 40) return { label: 'Possibly AI-assisted', color: '#efc027', textColor: 'text-yellow-700', bgColor: 'bg-yellow-500' };
-  if (score >= 20) return { label: 'Mostly human', color: '#97c459', textColor: 'text-lime-700', bgColor: 'bg-lime-500' };
+  if (score >= 70) return { label: 'Almost certainly AI', color: '#e24b4a', textColor: 'text-red-700', bgColor: 'bg-red-500' };
+  if (score >= 45) return { label: 'Likely AI-assisted', color: '#ef9f27', textColor: 'text-orange-700', bgColor: 'bg-orange-500' };
+  if (score >= 25) return { label: 'Mostly human', color: '#97c459', textColor: 'text-lime-700', bgColor: 'bg-lime-500' };
   return { label: 'Looks human', color: '#639922', textColor: 'text-green-700', bgColor: 'bg-green-500' };
 }
 
 function ScoreMeter({ score }: { score: number }) {
   const info = getScoreInfo(score);
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
 
   return (
-    <div className="text-center">
-      <div className="relative w-24 h-24 mx-auto mb-2">
-        <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e7eb" strokeWidth="8" />
-          <circle
-            cx="50"
-            cy="50"
-            r="42"
-            fill="none"
-            stroke={info.color}
-            strokeWidth="8"
-            strokeDasharray={`${(score / 100) * 264} 264`}
-            strokeLinecap="round"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className={`text-xl font-bold ${info.textColor}`}>{score}</span>
-        </div>
-      </div>
-      <div className={`text-xs font-semibold ${info.textColor}`}>{info.label}</div>
-      <div className="mt-1 w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-        <div className={`h-full ${info.bgColor} transition-all duration-500`} style={{ width: `${score}%` }} />
-      </div>
+    <div className="flex flex-col items-center gap-2">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        {/* Background circle */}
+        <circle cx="50" cy="50" r={radius} fill="none"
+                stroke="#e5e7eb" strokeWidth="8" />
+        {/* Score arc */}
+        <circle cx="50" cy="50" r={radius} fill="none"
+                stroke={info.color} strokeWidth="8"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+                transform="rotate(-90 50 50)" />
+        {/* Score number */}
+        <text x="50" y="50" textAnchor="middle" dominantBaseline="central"
+              fontSize="20" fontWeight="500" fill={info.color}>
+          {score}
+        </text>
+      </svg>
+      <span style={{ color: info.color }} className="text-sm font-medium">
+        {info.label}
+      </span>
     </div>
   );
 }

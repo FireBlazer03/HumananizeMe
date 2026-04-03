@@ -8,9 +8,9 @@ interface Rates {
 }
 
 const RATE_TABLE: Record<ImperfectionLevel, Rates> = {
-  subtle:    { spacePunct: 0.03, doubleSpace: 0,     splice: 0,     typo: 0 },
-  moderate:  { spacePunct: 0.05, doubleSpace: 0.015, splice: 0.02,  typo: 0 },
-  realistic: { spacePunct: 0.08, doubleSpace: 0.02,  splice: 0.03,  typo: 0.008 },
+  subtle:    { spacePunct: 0.08, doubleSpace: 0.02,  splice: 0,     typo: 0 },
+  moderate:  { spacePunct: 0.15, doubleSpace: 0.05,  splice: 0.04,  typo: 0 },
+  realistic: { spacePunct: 0.22, doubleSpace: 0.08,  splice: 0.07,  typo: 0.01 },
 };
 
 const TYPO_MAP: Record<string, string> = {
@@ -50,8 +50,13 @@ function isEligible(sentence: string, index: number): boolean {
 }
 
 export function injectImperfections(text: string, intensity: ImperfectionLevel): string {
+  console.log('[imperfections] START', { intensity, wordCount: text.split(/\s+/).length });
+
   const sentences = safeSplitSentences(text);
-  if (sentences.length < 3) return text;
+  if (sentences.length < 3) {
+    console.log('[imperfections] END — too few sentences, skipping');
+    return text;
+  }
 
   const r = RATE_TABLE[intensity];
   const targetPer500 = { subtle: 2.5, moderate: 5, realistic: 8.5 }[intensity];
@@ -81,16 +86,16 @@ export function injectImperfections(text: string, intensity: ImperfectionLevel):
     let modified = s;
     let didInject = false;
 
-    // Space before period
+    // Space before sentence-ending punctuation
     if (Math.random() < r.spacePunct) {
-      modified = modified.replace(/\.(\s*)$/, ' .$1');
+      modified = modified.replace(/([.!?])(\s*)$/, ' $1$2');
       didInject = true;
     }
 
     // Space before a comma
     if (!didInject && Math.random() < r.spacePunct * 0.6) {
       const commaIdx = modified.indexOf(',');
-      if (commaIdx > 0 && modified[commaIdx - 1] !== ' ') {
+      if (commaIdx > 1 && modified[commaIdx - 1] !== ' ' && modified[commaIdx - 1] !== '\n') {
         modified = modified.slice(0, commaIdx) + ' ,' + modified.slice(commaIdx + 1);
         didInject = true;
       }
@@ -156,5 +161,6 @@ export function injectImperfections(text: string, intensity: ImperfectionLevel):
     }
   }
 
+  console.log('[imperfections] END', { injected, totalTarget });
   return result.join('');
 }
