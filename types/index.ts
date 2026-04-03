@@ -1,9 +1,12 @@
 export type ImperfectionLevel = 'subtle' | 'moderate' | 'realistic';
 export type BurstinessMode = 'mild' | 'strong' | 'aggressive';
+export type SpacingIntensity = 'low' | 'medium' | 'high';
 
 export interface HumanizerSettings {
   imperfectionLevel: ImperfectionLevel;
   burstinessMode: BurstinessMode;
+  randomSpacingEnabled: boolean;
+  randomSpacingIntensity: SpacingIntensity;
 }
 
 export interface PassResult {

@@ -1,6 +1,6 @@
 'use client';
 
-import { HumanizerSettings, ImperfectionLevel, BurstinessMode } from '@/types';
+import { HumanizerSettings, ImperfectionLevel, BurstinessMode, SpacingIntensity } from '@/types';
 
 interface SettingsBarProps {
   settings: HumanizerSettings;
@@ -59,6 +59,39 @@ export default function SettingsBar({
           <option value="strong">Strong</option>
           <option value="aggressive">Aggressive</option>
         </select>
+      </div>
+
+      {/* Random Spacing toggle */}
+      <div className="flex items-center gap-2">
+        <label className="flex items-center gap-1.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={settings.randomSpacingEnabled}
+            onChange={(e) =>
+              onSettingsChange({ ...settings, randomSpacingEnabled: e.target.checked })
+            }
+            disabled={isProcessing}
+            className="w-3.5 h-3.5 accent-blue-600"
+          />
+          <span className="text-xs font-medium text-gray-500">Random Spacing</span>
+        </label>
+        {settings.randomSpacingEnabled && (
+          <select
+            value={settings.randomSpacingIntensity}
+            onChange={(e) =>
+              onSettingsChange({
+                ...settings,
+                randomSpacingIntensity: e.target.value as SpacingIntensity,
+              })
+            }
+            disabled={isProcessing}
+            className="px-2 py-1.5 text-sm border border-gray-200 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        )}
       </div>
 
       <button

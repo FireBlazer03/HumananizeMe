@@ -2,6 +2,7 @@ import { HumanizerSettings, HumanizerResult, PassResult, BurstinessMode } from '
 import { vocabReplacements } from './vocabMap';
 import { injectImperfections } from './imperfections';
 import { applyDynamicSynonyms } from './synonyms';
+import { applyRandomSpacing } from './spacing';
 
 // --- Helpers ---
 
@@ -807,6 +808,12 @@ export async function humanizeText(
   }
 
   onPassComplete?.(passes.length);
+
+  // Random Spacing — runs AFTER all passes, outside the loop.
+  // Only fires if the user explicitly enabled it. Independent of AI detection.
+  if (settings.randomSpacingEnabled) {
+    currentText = applyRandomSpacing(currentText, settings.randomSpacingIntensity);
+  }
 
   return {
     originalText: text,
