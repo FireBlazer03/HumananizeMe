@@ -37,7 +37,7 @@ export default function Home() {
   const [settings, setSettings] = useState<HumanizerSettings>({
     imperfectionLevel: 'moderate',
     burstinessMode: 'strong',
-    randomSpacingEnabled: false,
+    randomSpacingEnabled: true,
     randomSpacingIntensity: 'medium',
   });
   const [detectionReport, setDetectionReport] = useState<DetectionReportType | null>(null);
