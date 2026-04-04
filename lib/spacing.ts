@@ -1,64 +1,54 @@
 export type SpacingIntensity = 'low' | 'medium' | 'high';
 
 // Per-sentence probability that ANY imperfection fires in that sentence.
-// The actual type (space-before-punct vs double-space) is chosen randomly within.
 const SENTENCE_HIT_RATE: Record<SpacingIntensity, number> = {
-  low:    0.10, // ~10% of sentences get one imperfection
-  medium: 0.18, // ~18%
-  high:   0.28, // ~28%
+  low:    0.25,
+  medium: 0.40,
+  high:   0.55,
 };
 
 // Minimum imperfections per 100 words (guaranteed floor)
 const MIN_PER_100: Record<SpacingIntensity, number> = {
-  low:    1,
-  medium: 2,
-  high:   3,
+  low:    2,
+  medium: 3,
+  high:   5,
 };
 
 // Patterns that must never receive spacing injections
 const SKIP_PATTERNS = [
-  /^```/,                      // code block
-  /^https?:\/\//,              // URL line
-  /^\s*\d+\.\s/,               // numbered list item
-  /^\s*[-*]\s/,                // bullet list item
-  /^\s*#/,                     // heading
+  /^```/,
+  /^https?:\/\//,
+  /^\s*\d+\.\s/,
+  /^\s*[-*]\s/,
+  /^\s*#/,
 ];
 
 function isSkippable(sentence: string): boolean {
   const trimmed = sentence.trim();
   if (trimmed.length === 0) return true;
   if (SKIP_PATTERNS.some(p => p.test(trimmed))) return true;
-  // Skip sentences that contain URLs, numbers with decimals, or code-like patterns
   if (/https?:\/\//.test(trimmed)) return true;
   if (/`[^`]+`/.test(trimmed)) return true;
-  // Too short to safely inject into
   if (trimmed.split(/\s+/).length < 5) return true;
   return false;
 }
 
 // Split text into sentence-like chunks, preserving paragraph structure
 function chunkSentences(text: string): string[] {
-  const chunks: string[] = [];
-  const regex = /[^.!?\n]+[.!?]*\n?/g;
-  let match;
-  let lastIndex = 0;
-  while ((match = regex.exec(text)) !== null) {
-    chunks.push(match[0]);
-    lastIndex = regex.lastIndex;
-  }
-  if (lastIndex < text.length) {
-    chunks.push(text.slice(lastIndex));
-  }
-  return chunks;
+  // Split on sentence-ending punctuation followed by a space
+  const parts = text.split(/(?<=[.!?])\s+/);
+  return parts.filter(p => p.length > 0);
 }
 
 type Injector = (s: string) => string;
 
 // Inject a space before the terminal punctuation of a sentence
-const injectSpaceBeforePunct: Injector = (s) =>
-  s.replace(/([.!?,])(\s*)$/, ' $1$2');
+const injectSpaceBeforePunct: Injector = (s) => {
+  // Match the last punctuation mark
+  return s.replace(/([.!?])$/, ' $1');
+};
 
-// Inject a space before the first comma found mid-sentence
+// Inject a space before a comma found mid-sentence
 const injectSpaceBeforeComma: Injector = (s) => {
   const idx = s.indexOf(',');
   if (idx > 1 && s[idx - 1] !== ' ') {
@@ -71,11 +61,10 @@ const injectSpaceBeforeComma: Injector = (s) => {
 const injectDoubleSpace: Injector = (s) => {
   const words = s.split(' ');
   if (words.length < 5) return s;
-  // Pick a position in the middle third of the sentence
   const lo = Math.floor(words.length * 0.3);
   const hi = Math.floor(words.length * 0.7);
   const pos = lo + Math.floor(Math.random() * (hi - lo));
-  words[pos] = ' ' + words[pos]; // prepend extra space
+  words[pos] = words[pos] + ' '; // append extra space so join creates double
   return words.join(' ');
 };
 
@@ -88,58 +77,68 @@ const INJECTORS: Injector[] = [
 /**
  * Applies random spacing imperfections to text.
  * Completely independent of AI detection scores — purely user-driven.
- *
- * @param text      - The text to apply imperfections to
- * @param intensity - 'low' | 'medium' | 'high'
- * @returns Modified text with subtle spacing imperfections
  */
 export function applyRandomSpacing(text: string, intensity: SpacingIntensity): string {
+  console.log('[spacing] applyRandomSpacing called, intensity:', intensity);
+
   const chunks = chunkSentences(text);
+  console.log('[spacing] sentence chunks:', chunks.length);
+
   if (chunks.length === 0) return text;
 
   const hitRate = SENTENCE_HIT_RATE[intensity];
   const wordCount = text.split(/\s+/).length;
-  const minGuaranteed = Math.max(1, Math.floor((wordCount / 100) * MIN_PER_100[intensity]));
+  const minGuaranteed = Math.max(2, Math.ceil((wordCount / 100) * MIN_PER_100[intensity]));
+
+  console.log('[spacing] hitRate:', hitRate, 'wordCount:', wordCount, 'minGuaranteed:', minGuaranteed);
 
   let totalInjected = 0;
 
-  // Track positions already modified to avoid double-imperfection on same sentence
   const modified = chunks.map((chunk, idx) => {
     // Never touch first sentence
     if (idx === 0) return chunk;
     if (isSkippable(chunk)) return chunk;
-    // Max 2 imperfections per sentence (enforce here with a single-inject limit)
+
     if (Math.random() >= hitRate) return chunk;
 
-    // Choose injector randomly; avoid double-space on short sentences
+    // Choose injector randomly
     const available = chunk.split(/\s+/).length >= 6
       ? INJECTORS
-      : INJECTORS.slice(0, 2); // only punct-based on short sentences
+      : INJECTORS.slice(0, 2);
     const injector = available[Math.floor(Math.random() * available.length)];
     const result = injector(chunk);
-    if (result !== chunk) totalInjected++;
+    if (result !== chunk) {
+      totalInjected++;
+      console.log(`[spacing] injected in sentence ${idx}: "${chunk.slice(0, 40)}..." -> "${result.slice(0, 40)}..."`);
+    }
     return result;
   });
 
-  // Minimum guarantee: if not enough injected, force-inject on eligible sentences
-  // starting from the middle (not the first or last)
+  // Minimum guarantee: force-inject on eligible sentences if needed
   if (totalInjected < minGuaranteed) {
+    console.log(`[spacing] guarantee: need ${minGuaranteed}, have ${totalInjected}, forcing more`);
     const eligible = modified
       .map((c, i) => ({ c, i }))
-      .filter(({ c, i }) => i > 0 && !isSkippable(c) && !/  /.test(c));
+      .filter(({ c, i }) => i > 0 && !isSkippable(c));
 
-    // Shuffle eligible list for randomness
+    // Shuffle for randomness
     eligible.sort(() => Math.random() - 0.5);
 
     for (const { i } of eligible) {
       if (totalInjected >= minGuaranteed) break;
-      const result = injectSpaceBeforePunct(modified[i]);
+      // Alternate between injector types for variety
+      const injector = INJECTORS[totalInjected % INJECTORS.length];
+      const result = injector(modified[i]);
       if (result !== modified[i]) {
+        console.log(`[spacing] force-injected in sentence ${i}`);
         modified[i] = result;
         totalInjected++;
       }
     }
   }
 
-  return modified.join('');
+  console.log('[spacing] total injected:', totalInjected);
+
+  // Rejoin with spaces (since we split on space after punctuation)
+  return modified.join(' ');
 }
