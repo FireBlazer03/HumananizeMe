@@ -20,9 +20,9 @@ export default function SettingsBar({
   hasInput,
 }: SettingsBarProps) {
   return (
-    <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg">
-      {/* Left group: all controls */}
-      <div className="flex items-center gap-3 flex-wrap">
+    <div className="p-4 bg-white border border-gray-200 rounded-lg space-y-3">
+      {/* Row 1: Main controls */}
+      <div className="flex items-center gap-3">
         <button
           onClick={onHumanize}
           disabled={!hasInput || isProcessing}
@@ -63,48 +63,74 @@ export default function SettingsBar({
           </select>
         </div>
 
-        <div className="flex items-center gap-2" style={{ border: '1px solid #d1d5db', borderRadius: '6px', padding: '4px 10px' }}>
-          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={settings.randomSpacingEnabled}
-              onChange={(e) =>
-                onSettingsChange({ ...settings, randomSpacingEnabled: e.target.checked })
-              }
-              disabled={isProcessing}
-              className="accent-blue-600"
-              style={{ width: '16px', height: '16px' }}
-            />
-            <span className="font-medium text-gray-700 whitespace-nowrap">Random Spacing</span>
-          </label>
-          {settings.randomSpacingEnabled && (
-            <select
-              value={settings.randomSpacingIntensity}
-              onChange={(e) =>
-                onSettingsChange({
-                  ...settings,
-                  randomSpacingIntensity: e.target.value as SpacingIntensity,
-                })
-              }
-              disabled={isProcessing}
-              className="px-2 py-1 text-sm border border-gray-200 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          )}
+        <div style={{ marginLeft: 'auto' }}>
+          <button
+            onClick={onClear}
+            disabled={isProcessing}
+            className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Clear
+          </button>
         </div>
       </div>
 
-      {/* Right: Clear button */}
-      <button
-        onClick={onClear}
-        disabled={isProcessing}
-        className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+      {/* Row 2: Random Spacing */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          paddingTop: '8px',
+          borderTop: '1px solid #e5e7eb',
+        }}
       >
-        Clear
-      </button>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            userSelect: 'none',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={settings.randomSpacingEnabled}
+            onChange={(e) =>
+              onSettingsChange({ ...settings, randomSpacingEnabled: e.target.checked })
+            }
+            disabled={isProcessing}
+            style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
+          />
+          <span style={{ fontWeight: 500, color: '#374151' }}>Random Spacing</span>
+        </label>
+
+        {settings.randomSpacingEnabled && (
+          <select
+            value={settings.randomSpacingIntensity}
+            onChange={(e) =>
+              onSettingsChange({
+                ...settings,
+                randomSpacingIntensity: e.target.value as SpacingIntensity,
+              })
+            }
+            disabled={isProcessing}
+            style={{
+              padding: '4px 8px',
+              fontSize: '14px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              backgroundColor: 'white',
+              color: '#374151',
+            }}
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        )}
+      </div>
     </div>
   );
 }
