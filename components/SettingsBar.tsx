@@ -19,6 +19,8 @@ export default function SettingsBar({
   isProcessing,
   hasInput,
 }: SettingsBarProps) {
+  console.log('[SettingsBar] rendering, randomSpacingEnabled:', settings.randomSpacingEnabled);
+
   return (
     <div className="flex flex-wrap items-center gap-3 p-4 bg-white border border-gray-200 rounded-lg">
       <button
@@ -63,7 +65,7 @@ export default function SettingsBar({
 
       {/* Random Spacing toggle */}
       <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1.5 cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
           <input
             type="checkbox"
             checked={settings.randomSpacingEnabled}
@@ -71,9 +73,9 @@ export default function SettingsBar({
               onSettingsChange({ ...settings, randomSpacingEnabled: e.target.checked })
             }
             disabled={isProcessing}
-            className="w-3.5 h-3.5 accent-blue-600"
+            className="accent-blue-600"
           />
-          <span className="text-xs font-medium text-gray-500">Random Spacing</span>
+          <span className="font-medium text-gray-700">Random Spacing</span>
         </label>
         {settings.randomSpacingEnabled && (
           <select
@@ -85,7 +87,7 @@ export default function SettingsBar({
               })
             }
             disabled={isProcessing}
-            className="px-2 py-1.5 text-sm border border-gray-200 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm border border-gray-200 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
