@@ -288,7 +288,41 @@ function fixLanguagePatterns(text: string): string {
   return result;
 }
 
-// --- Pass 5: Structural Burstiness Engineering ---
+// --- Pass 5: Structural Burstiness Engineering (Phase 1 rewrite) ---
+
+function calcVariance(lengths: number[]): number {
+  if (lengths.length < 2) return 0;
+  const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+  return lengths.reduce((sum, l) => sum + Math.pow(l - avg, 2), 0) / lengths.length;
+}
+
+function splitAtFirstBreak(sentence: string): [string, string] | null {
+  // Try: comma+conjunction, semicolon, relative clause, bare comma
+  const patterns = [
+    /,\s+(and|but|so|yet|while|although|because|since|when|if)\s+/i,
+    /;\s+/,
+    /\s+(which|who|where)\s+/i,
+    /,\s+/,
+  ];
+  for (const p of patterns) {
+    const m = p.exec(sentence);
+    if (m && m.index > 10) {
+      const before = sentence.slice(0, m.index).trim();
+      let after = sentence.slice(m.index + m[0].length).trim();
+      if (before.split(/\s+/).length >= 4 && after.split(/\s+/).length >= 4) {
+        if (!/[.!?]$/.test(before)) {
+          // For relative clauses, substitute pronoun
+          if (/who|which|where/i.test(m[0])) {
+            const subst = /who/i.test(m[0]) ? 'They' : /where/i.test(m[0]) ? 'There' : 'It';
+            after = subst + ' ' + after;
+          }
+          return [before + '.', after.charAt(0).toUpperCase() + after.slice(1)];
+        }
+      }
+    }
+  }
+  return null;
+}
 
 function engineerBurstiness(text: string, mode: BurstinessMode): string {
   const isList = isListDominatedText(text);
@@ -297,136 +331,112 @@ function engineerBurstiness(text: string, mode: BurstinessMode): string {
 
   for (let pIdx = 0; pIdx < paragraphs.length; pIdx++) {
     const para = paragraphs[pIdx];
-    // Skip headings, code blocks
+
     if (para.trim().startsWith('#') || para.trim().startsWith('```')) {
       processedParagraphs.push(para);
       continue;
     }
 
-    // For list-dominated text, process individual list items
     if (isList && /^\d+\.\s|^[-*]\s/.test(para.trim())) {
-      // Vary the list item descriptions: some get shortened, some get a parenthetical
-      const lines = para.split('\n');
-      const processed = lines.map((line, idx) => {
-        const listMatch = line.match(/^(\d+\.\s+|[-*]\s+)(.+)/);
-        if (!listMatch) return line;
-        const [, prefix, content] = listMatch;
-        const words = content.split(/\s+/);
-
-        if (mode === 'aggressive' && idx % 3 === 2 && words.length > 8) {
-          // Shorten every 3rd item aggressively
-          return prefix + words.slice(0, Math.ceil(words.length * 0.6)).join(' ') + '.';
-        }
-        if ((mode === 'strong' || mode === 'aggressive') && idx % 4 === 1 && words.length > 5) {
-          // Add a brief parenthetical aside to every 4th item
-          const insertAt = Math.min(4, words.length - 1);
-          words.splice(insertAt, 0, '(when needed)');
-          return prefix + words.join(' ');
-        }
-        return line;
-      });
-      processedParagraphs.push(processed.join('\n'));
+      processedParagraphs.push(para);
       continue;
     }
 
-    // Skip simple lists
     if (para.trim().startsWith('-') || /^\d+\./.test(para.trim())) {
       processedParagraphs.push(para);
       continue;
     }
 
     let sentences = splitSentences(para);
+    if (sentences.length < 2) {
+      processedParagraphs.push(para);
+      continue;
+    }
 
-    // Calculate average sentence length and variance
-    const lengths = sentences.map(s => s.trim().split(/\s+/).length);
+    const getLengths = () => sentences.map(s => s.trim().split(/\s+/).length);
+    let lengths = getLengths();
+    let variance = calcVariance(lengths);
     const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
-    const paraVariance = lengths.reduce((sum, l) => sum + Math.pow(l - avg, 2), 0) / lengths.length;
 
-    // LOW-VARIANCE INTERVENTION: if variance < 12 and we have enough sentences,
-    // force-create length diversity by merging a pair AND splitting another.
-    if (paraVariance < 12 && sentences.length >= 5 && mode !== 'mild') {
-      // Step A: Merge sentences at index 1+2 into one long sentence
-      const mergeIdx = 1;
-      if (mergeIdx + 1 < sentences.length) {
+    // === PHASE 1 CORE: Force variance > 20 when too uniform ===
+    if (variance < 20 && mode !== 'mild' && sentences.length >= 3) {
+
+      // STEP A: Force SHORT sentence — split the longest sentence aggressively
+      let longestIdx = lengths.indexOf(Math.max(...lengths));
+      const split = splitAtFirstBreak(sentences[longestIdx].trim());
+      if (split) {
+        sentences.splice(longestIdx, 1, split[0] + ' ', split[1] + ' ');
+        lengths = getLengths();
+        variance = calcVariance(lengths);
+      }
+
+      // STEP B: Force LONG sentence — merge two medium sentences
+      lengths = getLengths();
+      const mediumPairs: number[] = [];
+      for (let i = 0; i < sentences.length - 1; i++) {
+        if (lengths[i] >= 8 && lengths[i] <= 18 && lengths[i + 1] >= 8 && lengths[i + 1] <= 18) {
+          mediumPairs.push(i);
+        }
+      }
+      if (mediumPairs.length > 0) {
+        // Pick the pair whose combined length makes the longest sentence
+        const mergeIdx = mediumPairs[Math.floor(mediumPairs.length / 2)];
         const s1 = sentences[mergeIdx].trim().replace(/[.!?]\s*$/, '');
-        const s2 = sentences[mergeIdx + 1].trim();
-        const s2lower = s2.charAt(0).toLowerCase() + s2.slice(1);
-        sentences[mergeIdx] = s1 + ', and ' + s2lower + ' ';
-        sentences.splice(mergeIdx + 1, 1);
+        const s2raw = sentences[mergeIdx + 1].trim();
+        const s2 = s2raw.charAt(0).toLowerCase() + s2raw.slice(1);
+        const connector = Math.random() < 0.5 ? ', and ' : '; ';
+        sentences.splice(mergeIdx, 2, s1 + connector + s2 + ' ');
+        lengths = getLengths();
+        variance = calcVariance(lengths);
       }
 
-      // Step B: Find the longest remaining sentence and split it if it has a comma
-      let longestIdx = 0;
-      let longestLen = 0;
-      for (let k = 0; k < sentences.length; k++) {
-        const wl = sentences[k].trim().split(/\s+/).length;
-        if (wl > longestLen && k !== mergeIdx) { longestLen = wl; longestIdx = k; }
-      }
-      const ls = sentences[longestIdx].trim();
-      // Try comma split (creates a natural short sentence before comma)
-      const commaIdx = ls.indexOf(',');
-      if (commaIdx > 0 && ls.slice(0, commaIdx).split(/\s+/).length >= 5) {
-        const before = ls.slice(0, commaIdx).trim() + '.';
-        const after = ls.slice(commaIdx + 1).trim();
-        const afterCapped = after.charAt(0).toUpperCase() + after.slice(1);
-        sentences[longestIdx] = before + ' ' + afterCapped + ' ';
+      // STEP C: If still low variance, split another long sentence
+      if (variance < 20 && sentences.length >= 3) {
+        lengths = getLengths();
+        longestIdx = lengths.indexOf(Math.max(...lengths));
+        const split2 = splitAtFirstBreak(sentences[longestIdx].trim());
+        if (split2) {
+          sentences.splice(longestIdx, 1, split2[0] + ' ', split2[1] + ' ');
+        }
       }
     }
 
-    // Find flat zone sentences (within 2 words of average)
+    // Flat zone: split long uniform sentences at interval
+    lengths = getLengths();
+    const updatedAvg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
     const interval = mode === 'mild' ? 8 : mode === 'strong' ? 4 : 3;
-
     const newSentences: string[] = [];
     let flatCount = 0;
 
     for (let i = 0; i < sentences.length; i++) {
       const len = sentences[i].trim().split(/\s+/).length;
-      const inFlatZone = Math.abs(len - avg) <= 2;
+      const inFlatZone = Math.abs(len - updatedAvg) <= 2;
 
       if (inFlatZone) {
         flatCount++;
         if (flatCount % interval === 0 && len >= 15) {
-          // Split at conjunction
-          const conjunctions = [', and ', ', but ', '; '];
-          let didSplit = false;
-          for (const conj of conjunctions) {
-            const idx = sentences[i].indexOf(conj);
-            if (idx > 0) {
-              const first = sentences[i].slice(0, idx).trim() + '.';
-              let second = sentences[i].slice(idx + conj.length).trim();
-              second = second.charAt(0).toUpperCase() + second.slice(1);
-              if (!second.match(/[.!?]\s*$/)) second += '.';
-              newSentences.push(first + ' ');
-
-              if (mode === 'strong' || mode === 'aggressive') {
-                // Insert a punchy follow-up
-                const words = second.split(/\s+/);
-                if (words.length > 3) {
-                  const punchy = words.slice(0, 2).join(' ').replace(/[.,;:]$/, '') + '.';
-                  newSentences.push(punchy + ' ');
-                }
-              }
-              newSentences.push(second + ' ');
-              didSplit = true;
-              break;
+          const split3 = splitAtFirstBreak(sentences[i].trim());
+          if (split3) {
+            newSentences.push(split3[0] + ' ');
+            if (mode !== 'mild' && split3[1].split(/\s+/).length > 6) {
+              // Insert punchy 2-word follow-up
+              const punchyWords = split3[1].split(/\s+/).slice(0, 3).join(' ').replace(/[.,;:]$/, '');
+              newSentences.push(punchyWords + '. ');
+              const rest = split3[1].split(/\s+/).slice(3).join(' ');
+              if (rest.length > 5) newSentences.push(rest.charAt(0).toUpperCase() + rest.slice(1) + ' ');
+            } else {
+              newSentences.push(split3[1] + ' ');
             }
+            continue;
           }
-          if (!didSplit) {
-            newSentences.push(sentences[i]);
-          }
-        } else {
-          newSentences.push(sentences[i]);
         }
-      } else {
-        newSentences.push(sentences[i]);
       }
+      newSentences.push(sentences[i]);
     }
-
     sentences = newSentences;
 
-    // Strong/aggressive: collapse adjacent short sentences (30% chance)
-    // For low-variance paragraphs raise the threshold so medium-length sentences also merge
-    const collapseThresh = paraVariance < 12 ? 16 : 8;
+    // Collapse adjacent short sentences (merge up short→long)
+    const collapseThresh = variance < 15 ? 18 : 8;
     if (mode === 'strong' || mode === 'aggressive') {
       const collapsed: string[] = [];
       let i = 0;
@@ -453,71 +463,33 @@ function engineerBurstiness(text: string, mode: BurstinessMode): string {
     processedParagraphs.push(sentences.join('').trim());
   }
 
-  // Aggressive: move last sentence to its own paragraph every 5th paragraph
+  // Aggressive: detach last sentence to own paragraph every 5th
   if (mode === 'aggressive') {
     const final: string[] = [];
     for (let i = 0; i < processedParagraphs.length; i++) {
       if ((i + 1) % 5 === 0) {
-        const para = processedParagraphs[i];
-        const sents = splitSentences(para);
+        const sents = splitSentences(processedParagraphs[i]);
         if (sents.length > 2) {
           const last = sents.pop()!;
           final.push(sents.join('').trim());
           final.push(last.trim());
-        } else {
-          final.push(para);
+          continue;
         }
-      } else {
-        final.push(processedParagraphs[i]);
       }
+      final.push(processedParagraphs[i]);
     }
     return final.join('\n\n');
   }
 
   let result = processedParagraphs.join('\n\n');
 
-  // Active voice conversion (heuristic)
+  // Active voice heuristic
   result = result.replace(
     /\b(The\s+\w+)\s+(was|were|is|are|been)\s+(\w+ed)\s+by\s+([\w\s]+?)([.,;!?])/gi,
-    (_match, _subject, _aux, verb, agent, punct) => {
-      const cleanAgent = agent.trim();
-      const activeVerb = verb.replace(/ed$/, 'ed');
-      return `${cleanAgent} ${activeVerb} ${_subject.toLowerCase()}${punct}`;
+    (_match, subject, _aux, verb, agent, punct) => {
+      return `${agent.trim()} ${verb} ${subject.toLowerCase()}${punct}`;
     }
   );
-
-  // Syntactic parallelism disruption in lists
-  const lines = result.split('\n');
-  let gerundRun: number[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (/^[-*]\s+\w+ing\b/.test(lines[i].trim())) {
-      gerundRun.push(i);
-    } else {
-      if (gerundRun.length >= 4) {
-        for (const pos of [1, 3]) {
-          if (pos < gerundRun.length) {
-            const lineIdx = gerundRun[pos];
-            const line = lines[lineIdx];
-            const m = line.match(/^([-*]\s+)(\w+ing)\s+(.+)/);
-            if (m) {
-              const [, bullet, gerund, rest] = m;
-              if (pos === 1) {
-                const noun = gerund.replace(/ing$/, '') + 'tion';
-                lines[lineIdx] = `${bullet}${rest.charAt(0).toUpperCase() + rest.slice(1)} ${noun.toLowerCase()}`;
-              } else {
-                lines[lineIdx] = `${bullet}Use ${rest}`;
-              }
-            }
-          }
-        }
-      }
-      gerundRun = [];
-      if (/^[-*]\s+\w+ing\b/.test(lines[i].trim())) {
-        gerundRun.push(i);
-      }
-    }
-  }
-  result = lines.join('\n');
 
   return result;
 }
@@ -588,6 +560,153 @@ function removePreambles(text: string): string {
   result = result.replace(/^\s*([a-z])/, (_m, c) => c.toUpperCase());
   result = result.replace(/ {2,}/g, ' ');
   return result;
+}
+
+// --- Pass: Morphology Correction (Phase 3) ---
+
+const NOUN_STACK_PATTERNS: [RegExp, string][] = [
+  [/\bthe implementation of\b/gi, 'implementing'],
+  [/\bthe optimization of\b/gi, 'optimizing'],
+  [/\bthe development of\b/gi, 'developing'],
+  [/\bthe creation of\b/gi, 'creating'],
+  [/\bthe establishment of\b/gi, 'establishing'],
+  [/\bthe utilization of\b/gi, 'using'],
+  [/\bthe achievement of\b/gi, 'achieving'],
+  [/\bthe enhancement of\b/gi, 'improving'],
+  [/\bthe reduction of\b/gi, 'reducing'],
+  [/\bthe improvement of\b/gi, 'improving'],
+  [/\bthe elimination of\b/gi, 'removing'],
+  [/\bthe introduction of\b/gi, 'introducing'],
+  [/\bthe application of\b/gi, 'applying'],
+  [/\bthe integration of\b/gi, 'integrating'],
+  [/\bthe adoption of\b/gi, 'adopting'],
+  [/\bwith regard to\b/gi, 'about'],
+  [/\bwith respect to\b/gi, 'about'],
+  [/\bin the context of\b/gi, 'in'],
+];
+
+function morphologyCorrection(text: string): string {
+  let result = text;
+  for (const [pattern, replacement] of NOUN_STACK_PATTERNS) {
+    result = result.replace(pattern, (match) => preserveCase(match, replacement));
+  }
+  // "in terms of X" → "for X"
+  result = result.replace(
+    /\bin terms of\s+([a-zA-Z][a-zA-Z\s]{0,30}?)([,;.!?]|\s+(?:and|but|or|which|that|when|if)\b)/gi,
+    (_m, noun, trailing) => `for ${noun}${trailing}`
+  );
+  result = result.replace(/ {2,}/g, ' ');
+  return result;
+}
+
+// --- Pass: Perplexity Injection (Phase 2) ---
+
+const INFORMAL_CONNECTIVES = [
+  'Honestly, ', 'In practice, ', 'The thing is, ', 'That said, ',
+  'At the same time, ', 'To be fair, ', 'In reality, ', 'Worth noting, ',
+];
+
+const PARENTHETICALS = [
+  '(at least in most cases)', '(or something close to it)',
+  '(depending on the situation)', '(which is worth keeping in mind)',
+  '(and this matters more than it seems)', '(though not always)',
+];
+
+function perplexityInjection(text: string): string {
+  const sentences = splitSentences(text);
+  if (sentences.length < 3) return text;
+
+  return sentences.map((s, idx) => {
+    if (idx === 0) return s;
+    const trimmed = s.trim();
+    if (trimmed.startsWith('#') || trimmed.startsWith('-') || trimmed.startsWith('*') || /^\d+\./.test(trimmed)) return s;
+    const wordCount = trimmed.split(/\s+/).length;
+    if (wordCount < 8) return s;
+    if (/\(/.test(trimmed)) return s;
+
+    if (Math.random() > 0.15) return s;
+
+    const type = Math.random();
+
+    if (type < 0.40) {
+      // Front an adverbial clause
+      const adverbials: Array<{ pattern: RegExp; fn: (m: RegExpMatchArray) => string }> = [
+        { pattern: /^(.+?)\s+because\s+(.+\.)$/, fn: (m) => `Because ${m[2].replace(/\.$/, '')}, ${m[1].charAt(0).toLowerCase() + m[1].slice(1)}.` },
+        { pattern: /^(.+?)\s+since\s+(.+\.)$/, fn: (m) => `Since ${m[2].replace(/\.$/, '')}, ${m[1].charAt(0).toLowerCase() + m[1].slice(1)}.` },
+        { pattern: /^(.+?)\s+although\s+(.+\.)$/, fn: (m) => `Although ${m[2].replace(/\.$/, '')}, ${m[1].charAt(0).toLowerCase() + m[1].slice(1)}.` },
+        { pattern: /^(.+?)\s+when\s+(.+\.)$/, fn: (m) => `When ${m[2].replace(/\.$/, '')}, ${m[1].charAt(0).toLowerCase() + m[1].slice(1)}.` },
+      ];
+      for (const { pattern, fn } of adverbials) {
+        const match = trimmed.match(pattern);
+        if (match && match[1].split(/\s+/).length > 4 && match[2].split(/\s+/).length > 4) {
+          return s.replace(trimmed, fn(match));
+        }
+      }
+      return s;
+    } else if (type < 0.70) {
+      // Insert parenthetical in middle
+      const words = trimmed.split(' ');
+      const pos = Math.floor(words.length * (0.4 + Math.random() * 0.2));
+      const aside = PARENTHETICALS[Math.floor(Math.random() * PARENTHETICALS.length)];
+      words.splice(pos, 0, aside);
+      return s.replace(trimmed, words.join(' '));
+    } else {
+      // Add informal connective at start
+      if (!/^(However|But|And|Or|So|Yet|Also|Still|Even|Just|Honestly|In practice|The thing)\b/.test(trimmed)) {
+        const connective = INFORMAL_CONNECTIVES[Math.floor(Math.random() * INFORMAL_CONNECTIVES.length)];
+        const lowered = trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
+        return s.replace(trimmed, connective + lowered);
+      }
+      return s;
+    }
+  }).join('');
+}
+
+// --- Pass: Semantic Non-linearity (Phase 4) ---
+
+const CONTRAST_SENTENCES = [
+  'Then again, not everyone sees it that way.',
+  "That's not the whole story, though.",
+  "It's more complicated than it looks.",
+  'Some would push back on this.',
+  'The reality is usually messier.',
+  'Not every case plays out this way.',
+];
+
+function semanticNonLinearity(text: string): string {
+  const paragraphs = text.split(/\n\n+/);
+
+  const processed = paragraphs.map(para => {
+    if (para.trim().startsWith('#') || para.trim().startsWith('```')) return para;
+    if (isListDominatedText(para)) return para;
+
+    const sentences = splitSentences(para);
+    if (sentences.length < 4) return para;
+
+    const roll = Math.random();
+
+    if (roll < 0.20) {
+      // Swap sentences at index 1 and 2 (0-based) if both declarative
+      const s1 = sentences[1]?.trim() || '';
+      const s2 = sentences[2]?.trim() || '';
+      if (s1 && s2 && !s1.endsWith('?') && !s2.endsWith('?')) {
+        const swapped = [...sentences];
+        swapped[1] = sentences[2];
+        swapped[2] = sentences[1];
+        return swapped.join('').trim();
+      }
+    } else if (roll < 0.35) {
+      // Insert contrast sentence after sentence at index 2
+      const contrast = CONTRAST_SENTENCES[Math.floor(Math.random() * CONTRAST_SENTENCES.length)];
+      const result = [...sentences];
+      result.splice(2, 0, ' ' + contrast + ' ');
+      return result.join('').trim();
+    }
+
+    return para;
+  });
+
+  return processed.join('\n\n');
 }
 
 // --- Pass: Break Long Sentences ---
@@ -779,8 +898,11 @@ export async function humanizeText(
     { name: 'Fixing formatting...', fn: fixFormatting },
     { name: 'Fixing language patterns...', fn: fixLanguagePatterns },
     { name: 'Removing preambles...', fn: removePreambles },
+    { name: 'Fixing morphology...', fn: morphologyCorrection },
     { name: 'Restructuring sentences...', fn: (t) => mergeShortSentences(varyOpeners(breakLongSentences(t))) },
     { name: 'Engineering burstiness...', fn: (t) => engineerBurstiness(t, settings.burstinessMode) },
+    { name: 'Injecting variety...', fn: perplexityInjection },
+    { name: 'Adding natural flow...', fn: semanticNonLinearity },
     { name: 'Cleaning adverbs...', fn: cleanupAdverbs },
     { name: 'Fixing sentence integrity...', fn: fixSentenceIntegrity },
     { name: 'Injecting imperfections...', fn: (t) => injectImperfections(t, settings.imperfectionLevel) },

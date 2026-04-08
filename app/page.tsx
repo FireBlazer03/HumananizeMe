@@ -17,10 +17,13 @@ const PIPELINE_LABELS = [
   'Fixing formatting',
   'Fixing language patterns',
   'Removing preambles',
+  'Fixing morphology',
   'Restructuring sentences',
   'Engineering burstiness',
+  'Injecting variety',
+  'Adding natural flow',
   'Cleaning adverbs',
-  'Fixing sentence integrity',
+  'Fixing integrity',
   'Injecting imperfections',
 ];
 
