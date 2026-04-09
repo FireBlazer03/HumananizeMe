@@ -640,19 +640,16 @@ function morphologyCorrection(text: string): string {
 // Targets repeated bigrams that lower 2-gram conditional entropy.
 // AI text: ~3.119, Human: ~3.883 (20% gap).
 
+// CURATED: only alternatives that preserve meaning in most contexts.
+// Removed: "is a"→"amounts to a", "has been"→"proved", "can be"→"might prove",
+// "will be"→"is likely to be" — all change meaning or certainty.
 const BIGRAM_ALTERNATIVES: Record<string, string[]> = {
-  'of the': ['within the', 'from the', "the area's", 'of this'],
-  'in the': ['inside the', 'within the', 'amid the', 'across the'],
-  'is a': ['works as a', 'amounts to a', 'qualifies as a', 'counts as a'],
-  'is an': ['works as an', 'counts as an', 'amounts to an'],
-  'it is': ['it remains', 'it stays', 'this is', 'that remains'],
+  'of the': ['within the', 'from the', 'of this'],
+  'in the': ['inside the', 'within the', 'across the'],
   'to the': ['toward the', 'for the', 'into the'],
-  'on the': ['upon the', 'atop the', 'along the'],
-  'there is': ['there exists', 'you find', 'one sees'],
-  'there are': ['you find', 'one sees', 'there exist'],
-  'has been': ['has turned out', 'has grown', 'proved'],
-  'can be': ['may be', 'could be', 'might prove'],
-  'will be': ['is set to be', 'stands to be', 'is likely to be'],
+  'on the': ['upon the', 'along the'],
+  'there is': ['there exists', 'you find'],
+  'there are': ['you find', 'there exist'],
 };
 
 function diversifyNgrams(text: string): string {
@@ -825,12 +822,17 @@ function perplexityInjection(text: string): string {
       }
       return s;
     } else if (type < 0.70) {
-      // Insert parenthetical in middle
-      const words = trimmed.split(' ');
-      const pos = Math.floor(words.length * (0.4 + Math.random() * 0.2));
-      const aside = PARENTHETICALS[Math.floor(Math.random() * PARENTHETICALS.length)];
-      words.splice(pos, 0, aside);
-      return s.replace(trimmed, words.join(' '));
+      // Insert parenthetical ONLY after a comma or clause boundary to avoid
+      // breaking noun phrases (e.g. "systemic (aside) barriers" is unnatural).
+      const commaIdx = trimmed.indexOf(',');
+      if (commaIdx > 10 && commaIdx < trimmed.length - 20) {
+        const aside = PARENTHETICALS[Math.floor(Math.random() * PARENTHETICALS.length)];
+        const before = trimmed.slice(0, commaIdx + 1);
+        const after = trimmed.slice(commaIdx + 1);
+        return s.replace(trimmed, before + ' ' + aside + after);
+      }
+      // No good insertion point — skip rather than force a bad one
+      return s;
     } else {
       // Add informal connective at start
       if (!/^(However|But|And|Or|So|Yet|Also|Still|Even|Just|Honestly|In practice|The thing)\b/.test(trimmed)) {
@@ -1001,6 +1003,149 @@ function varyOpeners(text: string): string {
   }).join('');
 }
 
+// --- Pass: Semantic Validation (meaning preservation) ---
+// Catches incorrect substitutions, redundant phrases, and unnatural combinations
+// that arise from earlier context-blind replacement passes.
+
+// Redundant adjacent-word patterns: "optimize effective efficiency" etc.
+const REDUNDANCY_PATTERNS: [RegExp, string][] = [
+  // Doubled meaning (adjective + near-synonym noun)
+  [/\boptimize\s+effective\s+efficiency\b/gi, 'improve efficiency'],
+  [/\bimprove\s+better\b/gi, 'improve'],
+  [/\bimprove\s+improvement\b/gi, 'improve'],
+  [/\bnew\s+new\b/gi, 'new'],
+  [/\bmore\s+more\b/gi, 'more'],
+  [/\bkey\s+key\b/gi, 'key'],
+  [/\bmajor\s+major\b/gi, 'major'],
+  [/\bactive\s+actively\b/gi, 'actively'],
+  [/\bactively\s+active\b/gi, 'actively'],
+  [/\bplanned\s+plan\b/gi, 'plan'],
+  [/\bplanned\s+planning\b/gi, 'planning'],
+  // Redundant intensifier + already-intense word
+  [/\bvery\s+very\b/gi, 'very'],
+  [/\bgreatly\s+greatly\b/gi, 'greatly'],
+  [/\breally\s+really\b/gi, 'really'],
+  // Tautological phrases
+  [/\bfuture\s+ahead\b/gi, 'future'],
+  [/\bpast\s+history\b/gi, 'history'],
+  [/\bend\s+result\b/gi, 'result'],
+  [/\bfree\s+gift\b/gi, 'gift'],
+  [/\bbasic\s+fundamentals\b/gi, 'basics'],
+  [/\bbasic\s+basics\b/gi, 'basics'],
+  [/\bjoin\s+together\b/gi, 'join'],
+  [/\breturn\s+back\b/gi, 'return'],
+  [/\bcombine\s+together\b/gi, 'combine'],
+  [/\bstill\s+remains\b/gi, 'remains'],
+  [/\bstill\s+continues\b/gi, 'continues'],
+];
+
+// Known bad substitution patterns our pipeline can produce
+const BAD_SUBSTITUTION_FIXES: [RegExp, string][] = [
+  // "planned desegregation" from "strategic integration"
+  [/\bplanned\s+desegregation\b/gi, 'strategic integration'],
+  // Grammar fixes from replacement artifacts
+  [/\bit is must\b/gi, 'it is important'],
+  [/\bis must that\b/gi, 'is important that'],
+  // Orphaned transition words (transition removed but word left as standalone sentence)
+  [/\.\s*On top of that\.\s*/g, '. '],
+  [/\.\s*Also\.\s*/g, '. '],
+  [/\.\s*Even so\.\s*/g, '. '],
+  [/\.\s*Still\.\s*/g, '. '],
+  [/\.\s*Then\.\s*/g, '. '],
+  [/\.\s*So\.\s*/g, '. '],
+  // Double periods and spacing artifacts
+  [/\.{2,}/g, '.'],
+  [/\.\s+\./g, '.'],
+];
+
+// Unnatural word combinations that sound robotic or contradictory
+const UNNATURAL_COMBOS: [RegExp, string][] = [
+  [/\bset up\s+company\b/gi, 'established company'],
+  [/\bskilled\s+difficulties\b/gi, 'experienced difficulties'],
+  [/\bskilled\s+problems\b/gi, 'experienced problems'],
+  [/\bskilled\s+issues\b/gi, 'experienced issues'],
+  [/\bskilled\s+challenges\b/gi, 'faced challenges'],
+  [/\bgood\s+strategy\b/gi, 'effective strategy'],
+  [/\bgood\s+approach\b/gi, 'effective approach'],
+  [/\bgood\s+implementation\b/gi, 'effective implementation'],
+  [/\bwell\s+strategy\b/gi, 'effective strategy'],
+  [/\bwell\s+approach\b/gi, 'effective approach'],
+  [/\buse\s+of\s+use\b/gi, 'use'],
+  [/\bshow\s+shows\b/gi, 'shows'],
+  [/\bshows\s+show\b/gi, 'shows'],
+];
+
+function semanticValidation(text: string): string {
+  let result = text;
+
+  // Fix known bad substitutions first
+  for (const [pattern, fix] of BAD_SUBSTITUTION_FIXES) {
+    result = result.replace(pattern, fix);
+  }
+
+  // Fix unnatural word combinations
+  for (const [pattern, fix] of UNNATURAL_COMBOS) {
+    result = result.replace(pattern, fix);
+  }
+
+  // Remove redundant phrases
+  for (const [pattern, fix] of REDUNDANCY_PATTERNS) {
+    result = result.replace(pattern, fix);
+  }
+
+  // Remove duplicate adjacent words (case-insensitive): "the the", "a a"
+  result = result.replace(/\b(\w+)\s+\1\b/gi, '$1');
+
+  // Clean up any resulting double spaces
+  result = result.replace(/ {2,}/g, ' ');
+
+  return result;
+}
+
+// --- Pass: Naturalness Check (final quality gate) ---
+// Ensures sentences read naturally after all transformations.
+
+function naturalnessCheck(text: string): string {
+  let result = text;
+
+  // Fix sentences that start with orphaned conjunctions from removed content
+  result = result.replace(/\.\s+And\s+\./g, '.');
+  result = result.replace(/\.\s+But\s+\./g, '.');
+  result = result.replace(/\.\s+Or\s+\./g, '.');
+
+  // Fix dangling prepositions at end of sentence from truncated rewrites
+  result = result.replace(/\s+(of|for|to|with|from|by|in|on|at)\s*\./g, '.');
+
+  // Fix sentences that are just a single short word + period (< 3 chars)
+  const sentences = splitSentences(result);
+  const cleaned = sentences.filter(s => {
+    const trimmed = s.trim();
+    const words = trimmed.split(/\s+/).filter(Boolean);
+    // Drop sentences that are just 1-2 words and under 8 chars (likely artifacts)
+    if (words.length <= 2 && trimmed.replace(/[.!?,;]/g, '').length < 8) {
+      // But keep intentional short sentences like "Indeed." or "Not quite."
+      if (/^[A-Z]/.test(trimmed) && trimmed.length >= 4) return true;
+      return false;
+    }
+    return true;
+  });
+  result = cleaned.join('');
+
+  // Fix common grammar errors from replacements
+  result = result.replace(/\bhave showed\b/gi, 'have shown');
+  result = result.replace(/\bhas showed\b/gi, 'has shown');
+  result = result.replace(/\bhave shown\b/gi, 'have shown'); // normalize
+  result = result.replace(/\bwas showed\b/gi, 'was shown');
+
+  // Fix double-comma and comma-period artifacts
+  result = result.replace(/,\s*,/g, ',');
+  result = result.replace(/,\s*\./g, '.');
+  result = result.replace(/;\s*\./g, '.');
+
+  result = result.replace(/ {2,}/g, ' ');
+  return result;
+}
+
 // --- Final Pass: Sentence Integrity ---
 
 function fixSentenceIntegrity(text: string): string {
@@ -1088,6 +1233,8 @@ export async function humanizeText(
     { name: 'Adding natural flow...', fn: semanticNonLinearity },
     { name: 'Diversifying punctuation...', fn: diversifyPunctuation },
     { name: 'Cleaning adverbs...', fn: cleanupAdverbs },
+    { name: 'Validating semantics...', fn: semanticValidation },
+    { name: 'Checking naturalness...', fn: naturalnessCheck },
     { name: 'Fixing sentence integrity...', fn: fixSentenceIntegrity },
     { name: 'Injecting imperfections...', fn: (t) => injectImperfections(t, settings.imperfectionLevel) },
   ];

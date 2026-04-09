@@ -26,6 +26,8 @@ const PIPELINE_LABELS = [
   'Adding natural flow',
   'Diversifying punctuation',
   'Cleaning adverbs',
+  'Validating semantics',
+  'Checking naturalness',
   'Fixing integrity',
   'Injecting imperfections',
 ];

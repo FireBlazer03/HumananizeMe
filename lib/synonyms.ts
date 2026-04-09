@@ -17,43 +17,38 @@ const vocabKeys = new Set(vocabReplacements.map(([phrase]) => phrase.toLowerCase
 // Static offline fallback: long/formal words → shorter plain alternatives
 // Only covers single words (phrases handled by vocabMap).
 // Ordered longest-first to avoid partial collision.
+// CURATED: removed entries that break meaning in common contexts.
+// e.g. "experienced difficulties" ≠ "skilled difficulties",
+//      "established company" ≠ "set up company",
+//      "committed a crime" ≠ "dedicated a crime"
 const STATIC_SIMPLIFY: [string, string][] = [
   ['acknowledgement', 'recognition'],
   ['categorically', 'clearly'],
   ['circumstances', 'situation'],
   ['collaboration', 'teamwork'],
-  ['collaborating', 'working'],
+  ['collaborating', 'working together'],
   ['collaborators', 'partners'],
   ['communicating', 'sharing'],
-  ['comprehension', 'grasp'],
+  ['comprehension', 'understanding'],
   ['consideration', 'thought'],
   ['contributions', 'input'],
   ['significantly', 'greatly'],
-  ['specifically', 'exactly'],
   ['continuously', 'steadily'],
   ['coordination', 'teamwork'],
-  ['demonstrated', 'showed'],
-  ['demonstrates', 'shows'],
   ['determination', 'drive'],
   ['disadvantages', 'downsides'],
-  ['effectiveness', 'results'],
-  ['establishment', 'creation'],
   ['exceptionally', 'very'],
-  ['implementation', 'use'],
   ['increasingly', 'more and more'],
   ['independently', 'on their own'],
-  ['individually', 'each person'],
   ['organizations', 'groups'],
   ['organization', 'group'],
   ['nevertheless', 'still'],
-  ['individually', 'each'],
   ['particularly', 'especially'],
   ['possibilities', 'options'],
   ['practitioners', 'experts'],
   ['predominantly', 'mostly'],
   ['consistently', 'steadily'],
   ['requirements', 'needs'],
-  ['relationship', 'connection'],
   ['responsibilities', 'duties'],
   ['approximately', 'about'],
   ['additionally', 'also'],
@@ -62,59 +57,34 @@ const STATIC_SIMPLIFY: [string, string][] = [
   ['fundamental', 'basic'],
   ['essentially', 'basically'],
   ['potentially', 'possibly'],
-  ['established', 'set up'],
-  ['effectively', 'well'],
   ['efficiently', 'quickly'],
-  ['challenging', 'hard'],
-  ['experienced', 'skilled'],
-  ['significant', 'major'],
-  ['responsible', 'in charge'],
   ['immediately', 'right away'],
   ['opportunity', 'chance'],
-  ['understand', 'grasp'],
   ['therefore', 'so'],
-  ['successful', 'good'],
-  ['committed', 'dedicated'],
   ['necessary', 'needed'],
   ['currently', 'now'],
   ['extremely', 'very'],
   ['typically', 'usually'],
-  ['implement', 'use'],
 ];
 
 // Perplexity boosters: common AI-predictable words → less predictable alternatives
-// Applied stochastically (30% of occurrences) to raise perplexity
+// Applied stochastically (25% of occurrences) to raise perplexity.
+// CURATED: only entries where ALL alternatives preserve meaning in most contexts.
 const PERPLEXITY_BOOSTERS: [string, string[]][] = [
-  ['important', ['consequential', 'material', 'non-trivial']],
-  ['effective', ['potent', 'productive', 'serviceable']],
-  ['approach', ['tack', 'angle', 'method']],
-  ['various', ['assorted', 'sundry', 'miscellaneous']],
-  ['process', ['mechanism', 'routine', 'sequence']],
-  ['provide', ['furnish', 'supply', 'yield']],
-  ['require', ['call for', 'demand', 'necessitate']],
-  ['develop', ['cultivate', 'forge', 'evolve']],
-  ['achieve', ['attain', 'pull off', 'secure']],
-  ['support', ['bolster', 'underpin', 'sustain']],
-  ['improve', ['refine', 'sharpen', 'elevate']],
-  ['address', ['tackle', 'confront', 'deal with']],
-  ['maintain', ['uphold', 'preserve', 'sustain']],
-  ['increase', ['ramp up', 'amplify', 'swell']],
-  ['decrease', ['shrink', 'taper', 'dwindle']],
-  ['consider', ['weigh', 'mull over', 'examine']],
-  ['identify', ['pinpoint', 'spot', 'single out']],
-  ['generate', ['produce', 'spawn', 'yield']],
-  ['evaluate', ['gauge', 'appraise', 'assess']],
-  ['benefits', ['perks', 'upsides', 'gains']],
-  ['features', ['traits', 'aspects', 'qualities']],
-  ['industry', ['sector', 'field', 'trade']],
-  ['solution', ['fix', 'remedy', 'answer']],
-  ['strategy', ['game plan', 'playbook', 'blueprint']],
-  ['continue', ['keep at', 'carry on', 'persist']],
-  ['emerging', ['rising', 'budding', 'up-and-coming']],
-  ['relevant', ['pertinent', 'applicable', 'germane']],
-  ['specific', ['particular', 'precise', 'exact']],
-  ['positive', ['favorable', 'upbeat', 'encouraging']],
-  ['ensuring', ['guaranteeing', 'making certain', 'seeing to it']],
+  ['approach', ['method', 'angle']],
+  ['provide', ['supply', 'offer']],
+  ['require', ['call for', 'need']],
+  ['achieve', ['attain', 'reach']],
+  ['address', ['tackle', 'deal with']],
+  ['consider', ['weigh', 'examine']],
+  ['identify', ['pinpoint', 'spot']],
+  ['evaluate', ['gauge', 'assess']],
+  ['benefits', ['upsides', 'gains']],
+  ['industry', ['sector', 'field']],
+  ['solution', ['fix', 'answer']],
+  ['continue', ['carry on', 'keep going']],
+  ['relevant', ['pertinent', 'applicable']],
+  ['specific', ['particular', 'precise']],
 ];
 
 // Module-level cache to avoid duplicate API calls
@@ -261,34 +231,27 @@ export async function applyDynamicSynonyms(text: string): Promise<string> {
     }
   }
 
-  // Step 0: Apply perplexity boosters stochastically (30% of occurrences)
+  // Step 0: Apply perplexity boosters stochastically (25% of occurrences)
   let result = text;
   for (const [word, alternatives] of PERPLEXITY_BOOSTERS) {
     const regex = new RegExp(`\\b${word}\\b`, 'gi');
     result = result.replace(regex, (matched) => {
-      if (Math.random() > 0.30) return matched; // keep original 70% of the time
+      if (Math.random() > 0.25) return matched; // keep original 75% of the time
       const alt = alternatives[Math.floor(Math.random() * alternatives.length)];
       return preserveCase(matched, alt);
     });
   }
 
-  // Step 1: Apply static offline fallback first (always runs, no network needed)
+  // Step 1: Apply static offline fallback (always runs, no network needed)
   for (const [formal, simple] of STATIC_SIMPLIFY) {
-    // Skip if already handled by vocabMap
     if (vocabKeys.has(formal.toLowerCase())) continue;
     const regex = new RegExp(`\\b${formal}\\b`, 'gi');
     result = result.replace(regex, (matched) => preserveCase(matched, simple));
   }
 
-  if (candidates.size === 0) return result;
-
-  // Step 2: Try Datamuse API for remaining complex candidates (browser only)
-  const synonyms = await batchFetch(Array.from(candidates), 5);
-  for (const [original, synonym] of synonyms) {
-    if (!synonym) continue;
-    const regex = new RegExp(`\\b${original}\\b`, 'gi');
-    result = result.replace(regex, (matched) => preserveCase(matched, synonym));
-  }
+  // Datamuse API DISABLED — context-blind synonym lookup produces incorrect
+  // substitutions (e.g. "integration" → "desegregation"). Static replacements
+  // are safer because they are manually curated for meaning preservation.
 
   return result;
 }
