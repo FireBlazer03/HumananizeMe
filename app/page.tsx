@@ -29,6 +29,7 @@ const PIPELINE_LABELS = [
   'Validating semantics',
   'Checking naturalness',
   'Fixing integrity',
+  'Refining tone',
   'Injecting imperfections',
 ];
 

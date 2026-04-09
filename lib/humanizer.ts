@@ -1146,6 +1146,141 @@ function naturalnessCheck(text: string): string {
   return result;
 }
 
+// --- Final Polish: Refine Natural Tone ---
+// Runs AFTER all transformations and validation. This is a polishing layer only.
+// Fixes awkward phrasing, weak word choices, flow issues, and tone inconsistency
+// that arise from earlier context-blind replacement passes.
+// Rule: never change meaning — only improve how it sounds.
+
+// Formal-register indicators: if 3+ present, text is formal/academic
+const FORMAL_INDICATORS = [
+  'implementation', 'infrastructure', 'methodology', 'framework', 'algorithms',
+  'operational', 'regulatory', 'governance', 'mechanisms', 'participants',
+  'interventions', 'longitudinal', 'predisposition', 'theoretical', 'empirical',
+  'socioeconomic', 'cognitive', 'organizational', 'institutional', 'analytical',
+  'architecture', 'procurement', 'compliance', 'jurisdiction', 'optimization',
+];
+
+function detectFormalRegister(text: string): boolean {
+  const lower = text.toLowerCase();
+  let count = 0;
+  for (const word of FORMAL_INDICATORS) {
+    if (lower.includes(word)) count++;
+    if (count >= 3) return true;
+  }
+  return false;
+}
+
+function refineNaturalTone(text: string): string {
+  let result = text;
+  const isFormal = detectFormalRegister(result);
+
+  // ── Phase 1: Fix awkward phrases from pipeline substitutions ──
+
+  // "[Article] [adjective] nature of" — "nature" is uncountable, only "The" works
+  result = result.replace(/\b(Each|One|A|That)\s+(complex|multifaceted|nuanced|intricate|dynamic)\s+nature\b/gi,
+    (_m, _starter, adj) => `The ${adj} nature`);
+
+  // "careful thought of" → "careful thought about" (preposition mismatch)
+  result = result.replace(/\bcareful thought of\b/gi, 'careful consideration of');
+  result = result.replace(/\bcareful thought about\b/gi, 'careful thought about');
+
+  // "thorough approach to" is fine, but "thorough angle to" is awkward
+  result = result.replace(/\bthorough angle\b/gi, 'thorough approach');
+  result = result.replace(/\bthorough tack\b/gi, 'thorough approach');
+
+  // "an/one ecosystem of" → "the ecosystem of"
+  result = result.replace(/\b(an|one) ecosystem of\b/gi, 'the ecosystem of');
+
+  // "one [noun]" at sentence start from starter diversification — usually wrong
+  result = result.replace(/(?:^|\.\s+)One\s+(ecosystem|landscape|world|community|platform)\b/gm,
+    (m) => m.replace(/One\s+/, 'The '));
+
+  // ── Phase 2: Restore natural word choices where replacements weakened text ──
+
+  // "planned integration/implementation" → "careful integration/implementation"
+  result = result.replace(/\bplanned (integration|implementation|development)\b/gi,
+    (_m, noun) => `careful ${noun}`);
+  // "planned approach" → "thoughtful approach"
+  result = result.replace(/\bplanned approach\b/gi, 'thoughtful approach');
+  // "planned strategy" → "deliberate strategy"
+  result = result.replace(/\bplanned strategy\b/gi, 'deliberate strategy');
+
+  // "solid governance/systems" → "strong governance/systems" (more natural collocate)
+  result = result.replace(/\bsolid governance\b/gi, 'strong governance');
+  result = result.replace(/\bsolid systems\b/gi, 'strong systems');
+  result = result.replace(/\bsolid analytics\b/gi, 'strong analytics');
+
+  // "lasting growth" is OK but "lasting outcomes" → "long-term outcomes"
+  result = result.replace(/\blasting outcomes\b/gi, 'long-term outcomes');
+  result = result.replace(/\blasting results\b/gi, 'long-term results');
+
+  // ── Phase 3: Improve flow — fix robotic transitions and stiff structure ──
+
+  // "Then, [gerund]..." at sentence start → just the gerund (remove robotic "Then")
+  result = result.replace(/(?:^|\.\s+)Then,\s+([a-z])/gm, (_m, firstChar) => {
+    // Preserve the sentence boundary
+    const prefix = _m.startsWith('.') ? '. ' : '';
+    return prefix + firstChar.toUpperCase();
+  });
+
+  // "Also, [lowercase]" at sentence start when it adds nothing
+  result = result.replace(/(?:^|\.\s+)Also,\s+the\b/gm, (m) => {
+    return m.replace('Also, the', 'The');
+  });
+
+  // ── Phase 4: Tone consistency ──
+
+  if (isFormal) {
+    // In formal text, "Groups" acting as subject → "Organizations"
+    // Matches at sentence start, after period, or after comma (e.g. "Worth noting, groups must")
+    result = result.replace(/\bGroups\s+(that|must|have|are|were|will|can|should|need|which|who)\b/g,
+      (m) => m.replace('Groups', 'Organizations'));
+    result = result.replace(/\bgroups\s+(that|must|have|are|were|will|can|should|need|which|who)\b/g,
+      (m) => m.replace('groups', 'organizations'));
+
+    // "handle complex" → "manage complex" in formal register
+    result = result.replace(/\bhandle complex\b/gi, 'manage complex');
+    result = result.replace(/\bhandle regulatory\b/gi, 'manage regulatory');
+    result = result.replace(/\bhandle the complex\b/gi, 'manage the complex');
+
+    // "It is imperative that" → "It is essential that" (still formal but less AI-like)
+    result = result.replace(/\bIt is imperative that\b/g, 'It is essential that');
+
+    // "showed" → "demonstrated" in formal academic context where it follows "studies"
+    result = result.replace(/\bstudies have shown\b/gi, 'studies have demonstrated');
+  } else {
+    // In informal text, "It is imperative that" → "It's important that"
+    result = result.replace(/\bIt is imperative that\b/g, "It's important that");
+  }
+
+  // ── Phase 5: Light humanization (subtle, low frequency) ──
+
+  // "It should be noted that" → "Worth noting," (if it survived)
+  result = result.replace(/\bIt should be noted that\b/gi, 'Worth noting,');
+
+  // Contracted forms in informal or mixed text (makes it sound more human)
+  if (!isFormal) {
+    result = result.replace(/\bIt is important\b/g, "It's important");
+    result = result.replace(/\bIt is clear\b/g, "It's clear");
+    result = result.replace(/\bThat is why\b/g, "That's why");
+    result = result.replace(/\bThere is no\b/g, "There's no");
+  }
+
+  // ── Phase 6: Final quality cleanup ──
+
+  // Remove any stray spaces before punctuation (from earlier passes)
+  result = result.replace(/ +([.!?,;:])/g, '$1');
+
+  // Fix double spaces
+  result = result.replace(/ {2,}/g, ' ');
+
+  // Fix space at start/end of sentences
+  result = result.replace(/\.\s{2,}/g, '. ');
+
+  return result.trim();
+}
+
 // --- Final Pass: Sentence Integrity ---
 
 function fixSentenceIntegrity(text: string): string {
@@ -1236,6 +1371,7 @@ export async function humanizeText(
     { name: 'Validating semantics...', fn: semanticValidation },
     { name: 'Checking naturalness...', fn: naturalnessCheck },
     { name: 'Fixing sentence integrity...', fn: fixSentenceIntegrity },
+    { name: 'Refining natural tone...', fn: refineNaturalTone },
     { name: 'Injecting imperfections...', fn: (t) => injectImperfections(t, settings.imperfectionLevel) },
   ];
 
