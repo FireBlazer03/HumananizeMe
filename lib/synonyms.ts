@@ -80,71 +80,44 @@ const KNOWN_BAD_SYNONYMS: Record<string, Set<string>> = {
 // Words already handled by the static vocab map
 const vocabKeys = new Set(vocabReplacements.map(([phrase]) => phrase.toLowerCase()));
 
-// Static offline fallback: long/formal words → shorter plain alternatives
-// CURATED: removed entries that break meaning in common contexts.
+// Static offline fallback: formal words → natural equivalents of equal or greater formality.
+// RULES: only entries where replacement maintains tone, precision, and register.
+// Entries that reduce formality, change meaning, or sound casual have been removed.
 const STATIC_SIMPLIFY: [string, string][] = [
-  ['acknowledgement', 'recognition'],
-  ['categorically', 'clearly'],
-  ['circumstances', 'situation'],
-  ['collaboration', 'teamwork'],
-  ['collaborating', 'working together'],
-  ['collaborators', 'partners'],
-  ['communicating', 'sharing'],
-  ['comprehension', 'understanding'],
-  ['consideration', 'thought'],
-  ['contributions', 'input'],
-  ['significantly', 'greatly'],
-  ['continuously', 'steadily'],
-  ['coordination', 'teamwork'],
-  ['determination', 'drive'],
-  ['disadvantages', 'downsides'],
-  ['exceptionally', 'very'],
-  ['increasingly', 'more and more'],
-  ['independently', 'on their own'],
-  ['organizations', 'groups'],
-  ['organization', 'group'],
-  ['nevertheless', 'still'],
-  ['particularly', 'especially'],
-  ['possibilities', 'options'],
-  ['practitioners', 'experts'],
-  ['predominantly', 'mostly'],
-  ['consistently', 'steadily'],
-  ['requirements', 'needs'],
-  ['responsibilities', 'duties'],
-  ['approximately', 'about'],
-  ['additionally', 'also'],
-  ['consequently', 'so'],
-  ['subsequently', 'then'],
-  ['fundamental', 'basic'],
-  ['essentially', 'basically'],
-  ['potentially', 'possibly'],
-  ['efficiently', 'quickly'],
-  ['immediately', 'right away'],
-  ['opportunity', 'chance'],
-  ['therefore', 'so'],
-  ['necessary', 'needed'],
-  ['currently', 'now'],
-  ['extremely', 'very'],
-  ['typically', 'usually'],
+  ['acknowledgement', 'recognition'],    // equivalent formality
+  ['circumstances', 'situation'],        // equivalent
+  ['collaboration', 'teamwork'],         // equivalent formality
+  ['collaborating', 'working together'], // natural phrasing
+  ['collaborators', 'partners'],         // equivalent
+  ['comprehension', 'understanding'],    // equivalent
+  ['coordination', 'teamwork'],          // equivalent
+  ['disadvantages', 'downsides'],        // equivalent
+  ['particularly', 'especially'],        // equivalent
+  ['possibilities', 'options'],          // equivalent
+  ['practitioners', 'experts'],          // equivalent
+  ['responsibilities', 'duties'],        // equivalent formality
+  ['potentially', 'possibly'],           // equivalent
+  ['typically', 'usually'],              // equivalent
 ];
 
 // Perplexity boosters: applied stochastically (25%) to raise perplexity.
-// CURATED: only entries where ALL alternatives preserve meaning.
+// RULES: ALL alternatives must maintain formal register and equal precision.
+// Casual alternatives (fix, need, spot, carry on, keep going, upsides) have been removed.
 const PERPLEXITY_BOOSTERS: [string, string[]][] = [
-  ['approach', ['method', 'angle']],
-  ['provide', ['supply', 'offer']],
-  ['require', ['call for', 'need']],
-  ['achieve', ['attain', 'reach']],
-  ['address', ['tackle', 'deal with']],
-  ['consider', ['weigh', 'examine']],
-  ['identify', ['pinpoint', 'spot']],
-  ['evaluate', ['gauge', 'assess']],
-  ['benefits', ['upsides', 'gains']],
-  ['industry', ['sector', 'field']],
-  ['solution', ['fix', 'answer']],
-  ['continue', ['carry on', 'keep going']],
-  ['relevant', ['pertinent', 'applicable']],
-  ['specific', ['particular', 'precise']],
+  ['approach', ['method', 'angle']],           // formal equivalents
+  ['provide', ['supply', 'offer']],            // formal equivalents
+  ['require', ['call for', 'demand']],         // formal; removed 'need' (casual)
+  ['achieve', ['attain', 'reach']],            // formal equivalents
+  ['address', ['tackle', 'confront']],         // formal; removed 'deal with' (casual)
+  ['consider', ['weigh', 'examine']],          // formal equivalents
+  ['identify', ['pinpoint', 'determine']],     // formal; removed 'spot' (casual)
+  ['evaluate', ['gauge', 'assess']],           // formal equivalents
+  ['benefits', ['advantages', 'merits']],      // formal; removed 'upsides'/'gains' (casual)
+  ['industry', ['sector', 'field']],           // formal equivalents
+  ['solution', ['resolution', 'remedy']],      // formal; removed 'fix'/'answer' (casual)
+  // removed: ['continue', ['carry on', 'keep going']] — both alternatives too casual
+  ['relevant', ['pertinent', 'applicable']],   // formal equivalents
+  ['specific', ['particular', 'precise']],     // formal equivalents
 ];
 
 // ── Helpers ──
@@ -203,6 +176,71 @@ function scoreCandidate(original: string, candidate: string, freq: number): numb
   if (candidate.includes(' ')) score -= 1;
 
   return score;
+}
+
+// ── Quality Gate: validates tone + precision before any replacement ──
+// Returns false if the replacement would degrade tone, formality, or precision.
+// Applied to ALL replacement sources: curated, static, and Datamuse.
+
+const TONE_DEGRADING: Record<string, Set<string>> = {
+  'organizations':  new Set(['groups', 'group']),
+  'organization':   new Set(['groups', 'group']),
+  'stakeholders':   new Set(['groups', 'group']),
+  'stakeholder':    new Set(['groups', 'group']),
+  'consideration':  new Set(['thought', 'thoughts']),
+  'considerations': new Set(['thoughts']),
+  'requirements':   new Set(['needs', 'need']),
+  'requirement':    new Set(['needs', 'need']),
+  'fundamental':    new Set(['basic', 'simple', 'plain']),
+  'opportunity':    new Set(['chance']),
+  'consequently':   new Set(['so']),
+  'subsequently':   new Set(['then', 'next']),
+  'approximately':  new Set(['about']),
+  'additionally':   new Set(['also', 'too']),
+  'essentially':    new Set(['basically']),
+  'therefore':      new Set(['so']),
+  'necessary':      new Set(['needed']),
+  'currently':      new Set(['now']),
+  'determination':  new Set(['drive', 'push']),
+  'facilitate':     new Set(['help', 'aid']),
+  'facilitates':    new Set(['helps', 'aids']),
+  'facilitated':    new Set(['helped', 'aided']),
+  'empower':        new Set(['help', 'aid', 'allow']),
+  'empowering':     new Set(['helping', 'aiding']),
+  'resilience':     new Set(['strength', 'toughness']),
+  'resilient':      new Set(['strong', 'tough']),
+  'equitable':      new Set(['fair', 'equal']),
+  'disruption':     new Set(['change', 'shift']),
+  'strategic':      new Set(['planned', 'calculated']),
+  'navigate':       new Set(['handle', 'manage', 'deal with']),
+  'navigating':     new Set(['handling', 'managing', 'dealing with']),
+  'efficiently':    new Set(['quickly', 'fast', 'rapidly']),
+  'increasingly':   new Set(['more and more', 'more']),
+  'independently':  new Set(['on their own', 'alone', 'by themselves']),
+  'predominantly':  new Set(['mostly', 'mainly']),
+  'consistently':   new Set(['steadily']),  // different meaning
+  'categorically':  new Set(['clearly']),   // different meaning
+};
+
+// Casual single-syllable words that must not replace formal multi-syllable words.
+const CASUAL_WORDS = new Set([
+  'so', 'now', 'then', 'next', 'also', 'just', 'very', 'much',
+  'well', 'good', 'bad', 'big', 'try', 'use', 'show', 'help',
+  'make', 'get', 'put', 'set', 'run', 'work', 'call', 'need',
+]);
+
+function isQualityReplacement(original: string, candidate: string): boolean {
+  const orig = original.toLowerCase().replace(/[^a-z]/g, '');
+  const repl = candidate.toLowerCase().trim();
+  const replFirst = repl.split(' ')[0];
+
+  // Gate 1: known tone-degrading pairs
+  if (TONE_DEGRADING[orig]?.has(repl)) return false;
+
+  // Gate 2: formal multi-syllable word → casual single-syllable word
+  if (countSyllables(orig) >= 3 && CASUAL_WORDS.has(replFirst)) return false;
+
+  return true;
 }
 
 // ── PHASE 1: Controlled Datamuse Fetch with All Filters ──
@@ -326,13 +364,14 @@ function hasAdjacentDuplicate(text: string, replacement: string): boolean {
 }
 
 // ── PHASE 3: Hybrid System — Main Export ──
-// Priority: curated vocab → static simplify → Datamuse (filtered)
+// NEW Priority: curated (validated) → Datamuse (filtered) → static fallback
+// ALL replacements must pass isQualityReplacement before being applied.
 
 export async function applyDynamicSynonyms(text: string): Promise<string> {
   // Build the per-document protected word set from phrases found in this text
   const protectedWords = buildProtectedWords(text);
 
-  // Collect Datamuse candidates: 3+ syllables, 7+ chars, not protected/blocked
+  // Collect Datamuse candidates from original text: 3+ syllables, 7+ chars, not protected/blocked
   const candidates: Set<string> = new Set();
   const sentences = text.split(/(?<=[.!?])\s+/);
   for (const sentence of sentences) {
@@ -349,43 +388,54 @@ export async function applyDynamicSynonyms(text: string): Promise<string> {
     }
   }
 
-  // Step 0: Apply perplexity boosters stochastically (25%)
+  // Step 1: Perplexity boosters — curated, stochastic 25%, quality-checked
   let result = text;
   for (const [word, alternatives] of PERPLEXITY_BOOSTERS) {
     const regex = new RegExp(`\\b${word}\\b`, 'gi');
     result = result.replace(regex, (matched) => {
       if (Math.random() > 0.25) return matched;
       const alt = alternatives[Math.floor(Math.random() * alternatives.length)];
+      // Quality gate: reject if replacement degrades tone or precision
+      if (!isQualityReplacement(matched, alt)) return matched;
       return preserveCase(matched, alt);
     });
   }
 
-  // Step 1: Apply static offline fallback (curated, always runs)
-  for (const [formal, simple] of STATIC_SIMPLIFY) {
-    if (vocabKeys.has(formal.toLowerCase())) continue;
-    const regex = new RegExp(`\\b${formal}\\b`, 'gi');
-    result = result.replace(regex, (matched) => preserveCase(matched, simple));
+  // Step 2: Datamuse — filtered by quality score AND quality gate, capped
+  const datamused = new Set<string>(); // track which words Datamuse replaced
+
+  if (candidates.size > 0) {
+    const synonyms = await batchFetch(Array.from(candidates), protectedWords, 4);
+    let replacementCount = 0;
+    const MAX_DATAMUSE_REPLACEMENTS = 5;
+
+    for (const [original, synonym] of synonyms) {
+      if (!synonym) continue;
+      if (replacementCount >= MAX_DATAMUSE_REPLACEMENTS) break;
+      // Quality gate: reject tone-degrading Datamuse results
+      if (!isQualityReplacement(original, synonym)) continue;
+
+      const regex = new RegExp(`\\b${original}\\b`, 'gi');
+      const tentative = result.replace(regex, (matched) => preserveCase(matched, synonym));
+      if (hasAdjacentDuplicate(tentative, synonym)) continue;
+
+      result = tentative;
+      datamused.add(original.toLowerCase());
+      replacementCount++;
+    }
   }
 
-  // Step 2: Datamuse — controlled, filtered, capped
-  if (candidates.size === 0) return result;
-
-  const synonyms = await batchFetch(Array.from(candidates), protectedWords, 4);
-
-  let replacementCount = 0;
-  const MAX_DATAMUSE_REPLACEMENTS = 5; // cap total Datamuse changes per document
-
-  for (const [original, synonym] of synonyms) {
-    if (!synonym) continue;
-    if (replacementCount >= MAX_DATAMUSE_REPLACEMENTS) break;
-
-    // Phase 4: Post-replacement validation — check adjacency
-    const regex = new RegExp(`\\b${original}\\b`, 'gi');
-    const tentative = result.replace(regex, (matched) => preserveCase(matched, synonym));
-    if (hasAdjacentDuplicate(tentative, synonym)) continue;
-
-    result = tentative;
-    replacementCount++;
+  // Step 3: Static fallback — only for words Datamuse did NOT replace, quality-checked
+  // Also respects DONT_REPLACE blocklist (previously unguarded).
+  for (const [formal, simple] of STATIC_SIMPLIFY) {
+    const formalLower = formal.toLowerCase();
+    if (vocabKeys.has(formalLower)) continue;       // already handled by vocabMap
+    if (DONT_REPLACE.has(formalLower)) continue;    // in blocklist — never downgrade
+    if (datamused.has(formalLower)) continue;        // Datamuse already found a better synonym
+    // Quality gate: reject if this curated pair would degrade tone or precision
+    if (!isQualityReplacement(formal, simple)) continue;
+    const regex = new RegExp(`\\b${formal}\\b`, 'gi');
+    result = result.replace(regex, (matched) => preserveCase(matched, simple));
   }
 
   return result;
