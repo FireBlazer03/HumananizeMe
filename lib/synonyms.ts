@@ -1,7 +1,10 @@
 import { vocabReplacements } from './vocabMap';
 
-// Technical terms that should never be simplified — meaning would change
+// ── PHASE 5: Blocklist — words that must NEVER be replaced via Datamuse ──
+// These are high-risk words where even a "synonym" changes meaning or tone.
+
 const DONT_REPLACE = new Set([
+  // Technical / domain terms
   'algorithm', 'implementation', 'infrastructure', 'authentication',
   'authorization', 'configuration', 'documentation', 'optimization',
   'cryptocurrency', 'blockchain', 'artificial', 'intelligence',
@@ -9,18 +12,76 @@ const DONT_REPLACE = new Set([
   'information', 'communication', 'organization', 'administration',
   'automatically', 'approximately', 'particularly', 'specifically',
   'relationship', 'development', 'performance', 'experience',
+  // Structural / formal words where synonyms degrade tone
+  'organizations', 'strategy', 'strategies', 'framework', 'frameworks',
+  'integration', 'methodology', 'structure', 'analysis',
+  'management', 'assessment', 'evaluation', 'community', 'communities',
+  'individual', 'individuals', 'system', 'systems',
+  'component', 'components', 'platform', 'mechanism', 'mechanisms',
+  'intervention', 'interventions', 'predisposition', 'stimuli',
 ]);
+
+// ── PHASE 3: Protected phrases — component words must NOT be individually replaced ──
+
+const PROTECTED_PHRASES = [
+  'machine learning', 'deep learning', 'artificial intelligence',
+  'change management', 'risk management', 'project management',
+  'data analysis', 'user experience', 'quality assurance',
+  'decision making', 'supply chain', 'mental health', 'public health',
+  'climate change', 'social media', 'natural language',
+  'operating system', 'best practices', 'case study', 'case studies',
+  'open source', 'due diligence', 'market research',
+  'human resources', 'civil rights', 'foreign policy', 'public policy',
+  'regulatory landscape', 'cognitive development', 'genetic predisposition',
+  'socioeconomic status', 'academic performance', 'evidence based',
+  'longitudinal research', 'environmental stimuli', 'theoretical frameworks',
+  'educational policy', 'student outcomes', 'processing time',
+  'operational efficiency', 'governance mechanisms', 'support programs',
+  'developmental processes', 'marginalized communities',
+];
+
+// Build set of words that appear inside protected phrases
+function buildProtectedWords(text: string): Set<string> {
+  const lower = text.toLowerCase();
+  const protectedWords = new Set<string>();
+  for (const phrase of PROTECTED_PHRASES) {
+    if (lower.includes(phrase)) {
+      for (const word of phrase.split(/\s+/)) {
+        if (word.length >= 4) protectedWords.add(word);
+      }
+    }
+  }
+  return protectedWords;
+}
+
+// ── Known bad Datamuse results: specific pairs to always reject ──
+
+const KNOWN_BAD_SYNONYMS: Record<string, Set<string>> = {
+  'integration': new Set(['desegregation', 'consolidation', 'unification']),
+  'implementation': new Set(['effectuation']),
+  'organization': new Set(['arrangement', 'formation', 'brass']),
+  'established': new Set(['accomplished', 'effected', 'constituted']),
+  'demonstrated': new Set(['manifested', 'evidenced']),
+  'significant': new Set(['pregnant', 'meaning']),
+  'performance': new Set(['execution', 'carrying out']),
+  'community': new Set(['residential district', 'biotic community']),
+  'management': new Set(['direction']),
+  'development': new Set(['exploitation', 'growing']),
+  'experience': new Set(['know', 'get']),
+  'environment': new Set(['surroundings', 'environs']),
+  'challenges': new Set(['gainsay']),
+  'comprehensive': new Set(['across-the-board']),
+  'understanding': new Set(['reason', 'intellect', 'discernment']),
+  'improvement': new Set(['melioration']),
+  'traditional': new Set(['ethnic']),
+  'professional': new Set(['master']),
+};
 
 // Words already handled by the static vocab map
 const vocabKeys = new Set(vocabReplacements.map(([phrase]) => phrase.toLowerCase()));
 
 // Static offline fallback: long/formal words → shorter plain alternatives
-// Only covers single words (phrases handled by vocabMap).
-// Ordered longest-first to avoid partial collision.
 // CURATED: removed entries that break meaning in common contexts.
-// e.g. "experienced difficulties" ≠ "skilled difficulties",
-//      "established company" ≠ "set up company",
-//      "committed a crime" ≠ "dedicated a crime"
 const STATIC_SIMPLIFY: [string, string][] = [
   ['acknowledgement', 'recognition'],
   ['categorically', 'clearly'],
@@ -67,9 +128,8 @@ const STATIC_SIMPLIFY: [string, string][] = [
   ['typically', 'usually'],
 ];
 
-// Perplexity boosters: common AI-predictable words → less predictable alternatives
-// Applied stochastically (25% of occurrences) to raise perplexity.
-// CURATED: only entries where ALL alternatives preserve meaning in most contexts.
+// Perplexity boosters: applied stochastically (25%) to raise perplexity.
+// CURATED: only entries where ALL alternatives preserve meaning.
 const PERPLEXITY_BOOSTERS: [string, string[]][] = [
   ['approach', ['method', 'angle']],
   ['provide', ['supply', 'offer']],
@@ -87,7 +147,8 @@ const PERPLEXITY_BOOSTERS: [string, string[]][] = [
   ['specific', ['particular', 'precise']],
 ];
 
-// Module-level cache to avoid duplicate API calls
+// ── Helpers ──
+
 const synonymCache = new Map<string, string | null>();
 
 function countSyllables(word: string): number {
@@ -110,15 +171,59 @@ function preserveCase(original: string, replacement: string): string {
   return replacement;
 }
 
-// Perplexity-aware synonym selection: instead of always picking the most common
-// synonym, randomly select across frequency tiers to increase unpredictability.
-async function getPerplexityAwareSynonym(word: string): Promise<string | null> {
+// ── PHASE 2: Candidate Filtering + Quality Scoring ──
+
+interface ScoredCandidate {
+  word: string;
+  freq: number;
+  score: number;
+}
+
+function scoreCandidate(original: string, candidate: string, freq: number): number {
+  let score = 0;
+
+  // 1. Length similarity (±3 chars)
+  const lenDiff = Math.abs(original.length - candidate.length);
+  if (lenDiff <= 2) score += 2;      // very similar length = good
+  else if (lenDiff <= 3) score += 1;  // acceptable
+  else score -= 2;                    // too different = likely tone shift
+
+  // 2. Syllable similarity (±1)
+  const origSyll = countSyllables(original);
+  const candSyll = countSyllables(candidate);
+  if (Math.abs(origSyll - candSyll) <= 1) score += 1;
+  else score -= 1;
+
+  // 3. Frequency — common words are safer replacements
+  if (freq >= 5.0) score += 2;       // very common = safe
+  else if (freq >= 2.0) score += 1;  // moderately common
+  else if (freq < 1.0) score -= 2;   // rare = risky
+
+  // 4. Multi-word penalty (phrases are harder to validate contextually)
+  if (candidate.includes(' ')) score -= 1;
+
+  return score;
+}
+
+// ── PHASE 1: Controlled Datamuse Fetch with All Filters ──
+
+async function getFilteredSynonym(
+  word: string,
+  protectedWords: Set<string>,
+): Promise<string | null> {
   const lower = word.toLowerCase();
 
-  if (lower.length < 6 || countSyllables(lower) < 4) return null;
+  // Gate 1: Blocklist
   if (DONT_REPLACE.has(lower)) return null;
   if (vocabKeys.has(lower)) return null;
 
+  // Gate 2: Protected phrase component
+  if (protectedWords.has(lower)) return null;
+
+  // Gate 3: Too short or too few syllables for safe replacement
+  if (lower.length < 7 || countSyllables(lower) < 3) return null;
+
+  // Check cache
   if (synonymCache.has(lower)) return synonymCache.get(lower) ?? null;
 
   try {
@@ -127,7 +232,7 @@ async function getPerplexityAwareSynonym(word: string): Promise<string | null> {
 
     const res = await fetch(
       `https://api.datamuse.com/words?rel_syn=${encodeURIComponent(lower)}&md=f&max=8`,
-      { signal: controller.signal }
+      { signal: controller.signal },
     );
     clearTimeout(timeout);
 
@@ -138,38 +243,46 @@ async function getPerplexityAwareSynonym(word: string): Promise<string | null> {
       return null;
     }
 
+    // Parse frequency and build candidates
     const origSyllables = countSyllables(lower);
-    const withFreq = data
+    const badSet = KNOWN_BAD_SYNONYMS[lower];
+
+    const candidates: ScoredCandidate[] = data
       .map(item => {
         const fTag = item.tags?.find(t => t.startsWith('f:'));
         const freq = fTag ? parseFloat(fTag.slice(2)) : 0;
-        return { word: item.word, freq };
+        return { word: item.word, freq, score: 0 };
       })
-      // Reject synonyms that are way more complex (3+ more syllables) or very rare
-      .filter(s => s.freq >= 0.5 && countSyllables(s.word) <= origSyllables + 2);
+      .filter(c => {
+        // Filter 2a: reject known bad synonyms
+        if (badSet?.has(c.word)) return false;
+        // Filter 2b: reject if too rare (freq < 1.5)
+        if (c.freq < 1.5) return false;
+        // Filter 2c: reject if syllable count differs by more than 1
+        if (Math.abs(countSyllables(c.word) - origSyllables) > 1) return false;
+        // Filter 2d: reject if length differs by more than 3 chars
+        if (Math.abs(c.word.length - lower.length) > 3) return false;
+        // Filter 2e: reject multi-word results
+        if (c.word.includes(' ')) return false;
+        // Filter 2f: reject if candidate is a blocked word itself
+        if (DONT_REPLACE.has(c.word)) return false;
+        return true;
+      })
+      .map(c => ({ ...c, score: scoreCandidate(lower, c.word, c.freq) }));
 
-    if (withFreq.length === 0) {
+    // Gate 4: Only accept candidates with quality score ≥ 3
+    const accepted = candidates.filter(c => c.score >= 3);
+
+    if (accepted.length === 0) {
       synonymCache.set(lower, null);
       return null;
     }
 
-    // Sort by frequency descending
-    withFreq.sort((a, b) => b.freq - a.freq);
+    // Sort by score descending, then by frequency descending
+    accepted.sort((a, b) => b.score - a.score || b.freq - a.freq);
 
-    // Perplexity-aware weighted selection:
-    // 40% → most common, 35% → mid-frequency, 25% → less common
-    let picked: typeof withFreq[0];
-    const roll = Math.random();
-    if (roll < 0.40 || withFreq.length === 1) {
-      picked = withFreq[0]; // most common
-    } else if (roll < 0.75 && withFreq.length >= 3) {
-      picked = withFreq[1 + Math.floor(Math.random() * Math.min(2, withFreq.length - 1))]; // mid
-    } else if (withFreq.length >= 4) {
-      const lo = Math.min(3, withFreq.length - 1);
-      picked = withFreq[lo + Math.floor(Math.random() * (withFreq.length - lo))]; // less common
-    } else {
-      picked = withFreq[Math.floor(Math.random() * withFreq.length)]; // fallback
-    }
+    // Pick the best candidate (deterministic for consistency)
+    const picked = accepted[0];
 
     synonymCache.set(lower, picked.word);
     return picked.word;
@@ -179,79 +292,101 @@ async function getPerplexityAwareSynonym(word: string): Promise<string | null> {
   }
 }
 
-// Process fetches in batches to avoid hammering the API
+// Process fetches in small batches
 async function batchFetch(
   words: string[],
-  concurrency: number
+  protectedWords: Set<string>,
+  concurrency: number,
 ): Promise<Map<string, string | null>> {
   const results = new Map<string, string | null>();
   for (let i = 0; i < words.length; i += concurrency) {
     const batch = words.slice(i, i + concurrency);
     const settled = await Promise.allSettled(
       batch.map(async w => {
-        const syn = await getPerplexityAwareSynonym(w);
+        const syn = await getFilteredSynonym(w, protectedWords);
         return { word: w, syn };
-      })
+      }),
     );
-    for (const result of settled) {
-      if (result.status === 'fulfilled') {
-        results.set(result.value.word, result.value.syn);
+    for (const r of settled) {
+      if (r.status === 'fulfilled') {
+        results.set(r.value.word, r.value.syn);
       }
     }
   }
   return results;
 }
 
-export async function applyDynamicSynonyms(text: string): Promise<string> {
-  // Find all candidate words: 4+ syllables, 6+ chars, not proper nouns
-  const wordRegex = /\b([a-zA-Z]+)\b/g;
-  const candidates: Set<string> = new Set();
-  let match;
+// ── PHASE 4: Post-replacement adjacency check ──
 
-  // Track word positions for proper noun detection
+function hasAdjacentDuplicate(text: string, replacement: string): boolean {
+  const lower = replacement.toLowerCase();
+  // Check if the replacement word would appear right next to itself
+  const pattern = new RegExp(`\\b${lower}\\s+${lower}\\b`, 'i');
+  return pattern.test(text);
+}
+
+// ── PHASE 3: Hybrid System — Main Export ──
+// Priority: curated vocab → static simplify → Datamuse (filtered)
+
+export async function applyDynamicSynonyms(text: string): Promise<string> {
+  // Build the per-document protected word set from phrases found in this text
+  const protectedWords = buildProtectedWords(text);
+
+  // Collect Datamuse candidates: 3+ syllables, 7+ chars, not protected/blocked
+  const candidates: Set<string> = new Set();
   const sentences = text.split(/(?<=[.!?])\s+/);
   for (const sentence of sentences) {
     const words = sentence.split(/\s+/);
     for (let i = 0; i < words.length; i++) {
       const raw = words[i].replace(/[^a-zA-Z]/g, '');
       if (!raw) continue;
-
       const lower = raw.toLowerCase();
-
-      // Skip if too short or too few syllables
-      if (lower.length < 6 || countSyllables(lower) < 4) continue;
-
-      // Skip proper nouns: capitalized and not first word of sentence
+      if (lower.length < 7 || countSyllables(lower) < 3) continue;
+      // Skip proper nouns (capitalized, not first word)
       if (i > 0 && raw[0] === raw[0].toUpperCase() && raw[0] !== raw[0].toLowerCase()) continue;
-
-      // Skip technical terms and vocab map words
-      if (DONT_REPLACE.has(lower) || vocabKeys.has(lower)) continue;
-
+      if (DONT_REPLACE.has(lower) || vocabKeys.has(lower) || protectedWords.has(lower)) continue;
       candidates.add(lower);
     }
   }
 
-  // Step 0: Apply perplexity boosters stochastically (25% of occurrences)
+  // Step 0: Apply perplexity boosters stochastically (25%)
   let result = text;
   for (const [word, alternatives] of PERPLEXITY_BOOSTERS) {
     const regex = new RegExp(`\\b${word}\\b`, 'gi');
     result = result.replace(regex, (matched) => {
-      if (Math.random() > 0.25) return matched; // keep original 75% of the time
+      if (Math.random() > 0.25) return matched;
       const alt = alternatives[Math.floor(Math.random() * alternatives.length)];
       return preserveCase(matched, alt);
     });
   }
 
-  // Step 1: Apply static offline fallback (always runs, no network needed)
+  // Step 1: Apply static offline fallback (curated, always runs)
   for (const [formal, simple] of STATIC_SIMPLIFY) {
     if (vocabKeys.has(formal.toLowerCase())) continue;
     const regex = new RegExp(`\\b${formal}\\b`, 'gi');
     result = result.replace(regex, (matched) => preserveCase(matched, simple));
   }
 
-  // Datamuse API DISABLED — context-blind synonym lookup produces incorrect
-  // substitutions (e.g. "integration" → "desegregation"). Static replacements
-  // are safer because they are manually curated for meaning preservation.
+  // Step 2: Datamuse — controlled, filtered, capped
+  if (candidates.size === 0) return result;
+
+  const synonyms = await batchFetch(Array.from(candidates), protectedWords, 4);
+
+  let replacementCount = 0;
+  const MAX_DATAMUSE_REPLACEMENTS = 5; // cap total Datamuse changes per document
+
+  for (const [original, synonym] of synonyms) {
+    if (!synonym) continue;
+    if (replacementCount >= MAX_DATAMUSE_REPLACEMENTS) break;
+
+    // Phase 4: Post-replacement validation — check adjacency
+    const regex = new RegExp(`\\b${original}\\b`, 'gi');
+    const tentative = result.replace(regex, (matched) => preserveCase(matched, synonym));
+    if (hasAdjacentDuplicate(tentative, synonym)) continue;
+
+    result = tentative;
+    replacementCount++;
+  }
 
   return result;
 }

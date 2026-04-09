@@ -1185,9 +1185,9 @@ function refineNaturalTone(text: string): string {
   result = result.replace(/\bcareful thought of\b/gi, 'careful consideration of');
   result = result.replace(/\bcareful thought about\b/gi, 'careful thought about');
 
-  // "thorough approach to" is fine, but "thorough angle to" is awkward
-  result = result.replace(/\bthorough angle\b/gi, 'thorough approach');
-  result = result.replace(/\bthorough tack\b/gi, 'thorough approach');
+  // Fix bad collocations with "thorough" (from vocabMap "comprehensive"→"thorough"
+  // + PERPLEXITY_BOOSTERS changing the paired noun)
+  result = result.replace(/\bthorough (angle|tack|method|fix|answer)\b/gi, 'thorough approach');
 
   // "an/one ecosystem of" → "the ecosystem of"
   result = result.replace(/\b(an|one) ecosystem of\b/gi, 'the ecosystem of');
