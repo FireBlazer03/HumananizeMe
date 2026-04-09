@@ -75,6 +75,13 @@ const KNOWN_BAD_SYNONYMS: Record<string, Set<string>> = {
   'improvement': new Set(['melioration']),
   'traditional': new Set(['ethnic']),
   'professional': new Set(['master']),
+  // Verb context: physical-travel synonyms for abstract verbs
+  'navigate':    new Set(['voyage', 'travel', 'sail', 'traverse', 'journey']),
+  'navigating':  new Set(['voyaging', 'travelling', 'sailing', 'traversing']),
+  // Precision: synonyms that weaken meaning in business/academic context
+  'evaluate':    new Set(['measure', 'weigh', 'count']),
+  'implement':   new Set(['perform', 'act', 'do', 'enact']),
+  'facilitate':  new Set(['do', 'act', 'run', 'work']),
 };
 
 // Words already handled by the static vocab map
@@ -243,6 +250,82 @@ function isQualityReplacement(original: string, candidate: string): boolean {
   return true;
 }
 
+// ── Context-Aware Verb Filter ──
+// The Datamuse API returns semantically valid synonyms but ignores domain context.
+// This filter blocks literal/physical verbs from replacing abstract/business verbs.
+
+// Literal-motion verbs that are wrong when the context is abstract or professional.
+const PHYSICAL_VERBS = new Set([
+  'voyage', 'travel', 'sail', 'traverse', 'trek', 'roam', 'wander', 'journey',
+  'march', 'hike', 'stroll', 'swim', 'dive', 'climb', 'crawl', 'fly',
+  'float', 'drift', 'glide', 'ride', 'dash', 'sprint', 'meander',
+]);
+
+// Signals that a sentence is in an abstract / business / technical domain.
+// 2+ of these present → treat context as abstract.
+const ABSTRACT_CONTEXT_SIGNALS = new Set([
+  'strategy', 'strategic', 'system', 'systems', 'framework', 'frameworks',
+  'environment', 'environments', 'process', 'processes', 'structure',
+  'operational', 'regulatory', 'organizational', 'technical', 'implementation',
+  'infrastructure', 'deployment', 'methodology', 'analysis', 'assessment',
+  'governance', 'compliance', 'architecture', 'workflow', 'pipeline',
+  'stakeholder', 'stakeholders', 'organization', 'organizations',
+  'management', 'performance', 'objectives', 'requirements', 'initiative',
+]);
+
+// Safe replacement allowlists for verbs that commonly get off-domain Datamuse results.
+// If the original verb is in this map, ONLY the listed candidates are accepted.
+// The preference is always to keep the original rather than use a risky synonym.
+const SAFE_VERB_CLUSTERS: Record<string, Set<string>> = {
+  'navigate':     new Set(['manage', 'steer', 'direct', 'operate']),
+  'navigating':   new Set(['managing', 'steering', 'directing', 'operating']),
+  'evaluate':     new Set(['assess', 'analyze', 'examine', 'appraise', 'review']),
+  'evaluating':   new Set(['assessing', 'analyzing', 'examining', 'appraising']),
+  'implement':    new Set(['deploy', 'execute', 'apply', 'introduce', 'establish']),
+  'implementing': new Set(['deploying', 'executing', 'applying', 'introducing']),
+  'facilitate':   new Set(['enable', 'support', 'streamline']),
+  'facilitating': new Set(['enabling', 'supporting', 'streamlining']),
+};
+
+function isAbstractContext(text: string): boolean {
+  const lower = text.toLowerCase();
+  let matches = 0;
+  for (const signal of ABSTRACT_CONTEXT_SIGNALS) {
+    if (lower.includes(signal) && ++matches >= 2) return true;
+  }
+  return false;
+}
+
+// Returns false if the replacement is contextually inappropriate.
+// Runs alongside isQualityReplacement for all Datamuse and curated replacements.
+//
+// Parameters:
+//   original — the word being replaced (lowercase, letters only)
+//   candidate — the proposed replacement
+//   context  — the sentence (or document) containing the original word
+function isContextuallyValid(
+  original: string,
+  candidate: string,
+  context: string,
+): boolean {
+  const orig = original.toLowerCase().replace(/[^a-z]/g, '');
+  const cand = candidate.toLowerCase().trim();
+  const candFirst = cand.split(' ')[0];
+
+  // Rule 1: Block physical/literal verbs in abstract/business contexts.
+  // "navigate complex environments" → "voyage complex environments" ❌
+  if ((PHYSICAL_VERBS.has(cand) || PHYSICAL_VERBS.has(candFirst)) && isAbstractContext(context)) {
+    return false;
+  }
+
+  // Rule 2: Verbs with defined safe clusters — reject anything outside the allowlist.
+  // Prefer keeping the original over using a Datamuse result not in the approved set.
+  const cluster = SAFE_VERB_CLUSTERS[orig];
+  if (cluster !== undefined && !cluster.has(cand)) return false;
+
+  return true;
+}
+
 // ── PHASE 1: Controlled Datamuse Fetch with All Filters ──
 
 async function getFilteredSynonym(
@@ -388,7 +471,7 @@ export async function applyDynamicSynonyms(text: string): Promise<string> {
     }
   }
 
-  // Step 1: Perplexity boosters — curated, stochastic 25%, quality-checked
+  // Step 1: Perplexity boosters — curated, stochastic 25%, quality+context-checked
   let result = text;
   for (const [word, alternatives] of PERPLEXITY_BOOSTERS) {
     const regex = new RegExp(`\\b${word}\\b`, 'gi');
@@ -397,11 +480,13 @@ export async function applyDynamicSynonyms(text: string): Promise<string> {
       const alt = alternatives[Math.floor(Math.random() * alternatives.length)];
       // Quality gate: reject if replacement degrades tone or precision
       if (!isQualityReplacement(matched, alt)) return matched;
+      // Context gate: reject literal verbs in abstract/business contexts
+      if (!isContextuallyValid(matched, alt, text)) return matched;
       return preserveCase(matched, alt);
     });
   }
 
-  // Step 2: Datamuse — filtered by quality score AND quality gate, capped
+  // Step 2: Datamuse — filtered by quality score, quality gate, AND context gate, capped
   const datamused = new Set<string>(); // track which words Datamuse replaced
 
   if (candidates.size > 0) {
@@ -409,11 +494,18 @@ export async function applyDynamicSynonyms(text: string): Promise<string> {
     let replacementCount = 0;
     const MAX_DATAMUSE_REPLACEMENTS = 5;
 
+    // Pre-split into sentences once for efficient per-word context lookup
+    const docSentences = result.split(/(?<=[.!?])\s+/);
+
     for (const [original, synonym] of synonyms) {
       if (!synonym) continue;
       if (replacementCount >= MAX_DATAMUSE_REPLACEMENTS) break;
       // Quality gate: reject tone-degrading Datamuse results
       if (!isQualityReplacement(original, synonym)) continue;
+      // Context gate: find the sentence this word lives in, then validate
+      const wordPattern = new RegExp(`\\b${original}\\b`, 'i');
+      const hostSentence = docSentences.find(s => wordPattern.test(s)) ?? result;
+      if (!isContextuallyValid(original, synonym, hostSentence)) continue;
 
       const regex = new RegExp(`\\b${original}\\b`, 'gi');
       const tentative = result.replace(regex, (matched) => preserveCase(matched, synonym));
