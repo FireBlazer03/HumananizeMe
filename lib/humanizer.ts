@@ -483,11 +483,48 @@ function engineerBurstiness(text: string, mode: BurstinessMode): string {
 
   let result = processedParagraphs.join('\n\n');
 
-  // Active voice heuristic
+  // Active voice heuristics — multiple passive→active patterns
+
+  // Pattern 1: "The X was/were/is/are verbed by Y" → "Y verbed the X"
   result = result.replace(
-    /\b(The\s+\w+)\s+(was|were|is|are|been)\s+(\w+ed)\s+by\s+([\w\s]+?)([.,;!?])/gi,
+    /\b(The\s+\w+)\s+(was|were|is|are)\s+(\w+ed)\s+by\s+([\w\s]+?)([.,;!?])/gi,
     (_match, subject, _aux, verb, agent, punct) => {
       return `${agent.trim()} ${verb} ${subject.toLowerCase()}${punct}`;
+    }
+  );
+
+  // Pattern 2: "X has/have been verbed" → "X verbed" (drop passive auxiliary)
+  result = result.replace(
+    /\b(\w[\w\s]{1,25}?)\s+(has|have)\s+been\s+(\w+ed)\b/gi,
+    (_match, subject, _aux, verb) => {
+      return `${subject.trim()} ${verb}`;
+    }
+  );
+
+  // Pattern 3: "It was/is verbed that..." → "They verbed that..." or drop "It"
+  result = result.replace(
+    /\bIt\s+(was|is)\s+(\w+ed)\s+that\b/gi,
+    (_match, _aux, verb) => {
+      const subjects = ['They', 'People', 'Researchers', 'Experts'];
+      const subj = subjects[Math.floor(Math.random() * subjects.length)];
+      return `${subj} ${verb} that`;
+    }
+  );
+
+  // Pattern 4: "X can be verbed" → "You can verb X" or "We can verb X"
+  result = result.replace(
+    /\b([\w\s]{2,20}?)\s+can\s+be\s+(\w+)ed\b/gi,
+    (_match, subject, verbRoot) => {
+      const actor = Math.random() < 0.5 ? 'You' : 'We';
+      return `${actor} can ${verbRoot} ${subject.trim().toLowerCase()}`;
+    }
+  );
+
+  // Pattern 5: "X should be verbed" → "You should verb X"
+  result = result.replace(
+    /\b([\w\s]{2,20}?)\s+should\s+be\s+(\w+)ed\b/gi,
+    (_match, subject, verbRoot) => {
+      return `You should ${verbRoot} ${subject.trim().toLowerCase()}`;
     }
   );
 
@@ -596,6 +633,150 @@ function morphologyCorrection(text: string): string {
     (_m, noun, trailing) => `for ${noun}${trailing}`
   );
   result = result.replace(/ {2,}/g, ' ');
+  return result;
+}
+
+// --- Pass: N-gram Entropy Diversification ---
+// Targets repeated bigrams that lower 2-gram conditional entropy.
+// AI text: ~3.119, Human: ~3.883 (20% gap).
+
+const BIGRAM_ALTERNATIVES: Record<string, string[]> = {
+  'of the': ['within the', 'from the', "the area's", 'of this'],
+  'in the': ['inside the', 'within the', 'amid the', 'across the'],
+  'is a': ['works as a', 'amounts to a', 'qualifies as a', 'counts as a'],
+  'is an': ['works as an', 'counts as an', 'amounts to an'],
+  'it is': ['it remains', 'it stays', 'this is', 'that remains'],
+  'to the': ['toward the', 'for the', 'into the'],
+  'on the': ['upon the', 'atop the', 'along the'],
+  'there is': ['there exists', 'you find', 'one sees'],
+  'there are': ['you find', 'one sees', 'there exist'],
+  'has been': ['has turned out', 'has grown', 'proved'],
+  'can be': ['may be', 'could be', 'might prove'],
+  'will be': ['is set to be', 'stands to be', 'is likely to be'],
+};
+
+function diversifyNgrams(text: string): string {
+  let result = text;
+  // Track how many times each bigram has been seen
+  const bigramCount: Record<string, number> = {};
+
+  for (const [bigram, alts] of Object.entries(BIGRAM_ALTERNATIVES)) {
+    const regex = new RegExp(`\\b${bigram}\\b`, 'gi');
+    bigramCount[bigram] = 0;
+
+    result = result.replace(regex, (matched) => {
+      bigramCount[bigram]++;
+      // Keep the first occurrence, diversify subsequent ones (50% chance)
+      if (bigramCount[bigram] <= 1) return matched;
+      if (Math.random() > 0.50) return matched;
+      const alt = alts[Math.floor(Math.random() * alts.length)];
+      return preserveCase(matched, alt);
+    });
+  }
+
+  return result;
+}
+
+// --- Pass: Sentence Starter Diversity ---
+// AI text heavily uses "The X", "This Y", "It Z" openings. Detectors flag low opener diversity.
+
+const ARTICLE_OPENER_TRANSFORMS: Array<{ pattern: RegExp; replacements: string[] }> = [
+  { pattern: /^The (\w+)/, replacements: ['That $1', 'A $1', 'One $1', 'Each $1'] },
+  { pattern: /^This (\w+)/, replacements: ['That $1', 'Such a $1', 'One $1'] },
+  { pattern: /^These (\w+)/, replacements: ['Such $1', 'Those $1', 'Many $1'] },
+  { pattern: /^It is /, replacements: ['What matters is ', 'The point is ', 'The fact is '] },
+  { pattern: /^There is /, replacements: ['One finds ', 'You see ', 'We see '] },
+  { pattern: /^There are /, replacements: ['You find ', 'We see ', 'One finds '] },
+];
+
+function diversifySentenceStarters(text: string): string {
+  const sentences = splitSentences(text);
+  if (sentences.length < 4) return text;
+
+  // Count starter frequencies (first 2 words)
+  const starterFreq: Record<string, number[]> = {};
+  for (let i = 0; i < sentences.length; i++) {
+    const words = sentences[i].trim().split(/\s+/);
+    if (words.length < 2) continue;
+    const starter = words[0].toLowerCase();
+    if (!starterFreq[starter]) starterFreq[starter] = [];
+    starterFreq[starter].push(i);
+  }
+
+  // For each overrepresented starter (3+ occurrences), transform 2nd+ occurrences
+  for (const [_starter, indices] of Object.entries(starterFreq)) {
+    if (indices.length < 3) continue;
+
+    // Skip first occurrence, transform some of the rest
+    for (let k = 1; k < indices.length; k++) {
+      if (Math.random() > 0.6) continue; // only transform 60% of duplicates
+      const idx = indices[k];
+      const trimmed = sentences[idx].trim();
+
+      for (const { pattern, replacements } of ARTICLE_OPENER_TRANSFORMS) {
+        if (pattern.test(trimmed)) {
+          const rep = replacements[Math.floor(Math.random() * replacements.length)];
+          const transformed = trimmed.replace(pattern, rep);
+          sentences[idx] = sentences[idx].replace(trimmed, transformed);
+          break;
+        }
+      }
+    }
+  }
+
+  // Also: if 3+ consecutive sentences start with same first word, transform the middle one
+  for (let i = 1; i < sentences.length - 1; i++) {
+    const prev = sentences[i - 1].trim().split(/\s+/)[0]?.toLowerCase();
+    const curr = sentences[i].trim().split(/\s+/)[0]?.toLowerCase();
+    const next = sentences[i + 1]?.trim().split(/\s+/)[0]?.toLowerCase();
+    if (prev === curr && curr === next) {
+      const trimmed = sentences[i].trim();
+      // Prepend a transitional phrase
+      const transitions = ['Meanwhile, ', 'At the same time, ', 'On a related note, ', 'Along those lines, '];
+      const trans = transitions[Math.floor(Math.random() * transitions.length)];
+      const lowered = trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
+      sentences[i] = sentences[i].replace(trimmed, trans + lowered);
+    }
+  }
+
+  return sentences.join('');
+}
+
+// --- Pass: Punctuation Pattern Diversity ---
+// AI text has monotonous punctuation. Human writing uses varied punctuation irregularly.
+
+function diversifyPunctuation(text: string): string {
+  let result = text;
+
+  // 10% of "X, and Y" → "X; Y" (semicolon join)
+  result = result.replace(/,\s+and\s+/g, (matched) => {
+    if (Math.random() > 0.10) return matched;
+    return '; ';
+  });
+
+  // 8% of adjacent short sentences → colon join: "X. Y." → "X: y."
+  const sentences = splitSentences(result);
+  for (let i = 0; i < sentences.length - 1; i++) {
+    const a = sentences[i].trim();
+    const b = sentences[i + 1]?.trim();
+    if (!a || !b) continue;
+    const aLen = a.split(/\s+/).length;
+    const bLen = b.split(/\s+/).length;
+    if (aLen < 12 && bLen < 12 && aLen > 4 && bLen > 4 && Math.random() < 0.08) {
+      const aTrimmed = a.replace(/[.!?]\s*$/, '');
+      const bLowered = b.charAt(0).toLowerCase() + b.slice(1);
+      sentences[i] = aTrimmed + ': ';
+      sentences[i + 1] = bLowered;
+    }
+  }
+  result = sentences.join('');
+
+  // Occasionally (5%) convert one "X, Y, and Z" per paragraph to "X and Y (along with Z)"
+  result = result.replace(/\b(\w+),\s+(\w+),\s+and\s+(\w+)\b/g, (matched, a, b, c) => {
+    if (Math.random() > 0.05) return matched;
+    return `${a} and ${b} (along with ${c})`;
+  });
+
   return result;
 }
 
@@ -899,10 +1080,13 @@ export async function humanizeText(
     { name: 'Fixing language patterns...', fn: fixLanguagePatterns },
     { name: 'Removing preambles...', fn: removePreambles },
     { name: 'Fixing morphology...', fn: morphologyCorrection },
+    { name: 'Diversifying n-grams...', fn: diversifyNgrams },
+    { name: 'Diversifying sentence starters...', fn: diversifySentenceStarters },
     { name: 'Restructuring sentences...', fn: (t) => mergeShortSentences(varyOpeners(breakLongSentences(t))) },
     { name: 'Engineering burstiness...', fn: (t) => engineerBurstiness(t, settings.burstinessMode) },
     { name: 'Injecting variety...', fn: perplexityInjection },
     { name: 'Adding natural flow...', fn: semanticNonLinearity },
+    { name: 'Diversifying punctuation...', fn: diversifyPunctuation },
     { name: 'Cleaning adverbs...', fn: cleanupAdverbs },
     { name: 'Fixing sentence integrity...', fn: fixSentenceIntegrity },
     { name: 'Injecting imperfections...', fn: (t) => injectImperfections(t, settings.imperfectionLevel) },

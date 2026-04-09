@@ -82,6 +82,41 @@ const STATIC_SIMPLIFY: [string, string][] = [
   ['implement', 'use'],
 ];
 
+// Perplexity boosters: common AI-predictable words → less predictable alternatives
+// Applied stochastically (30% of occurrences) to raise perplexity
+const PERPLEXITY_BOOSTERS: [string, string[]][] = [
+  ['important', ['consequential', 'material', 'non-trivial']],
+  ['effective', ['potent', 'productive', 'serviceable']],
+  ['approach', ['tack', 'angle', 'method']],
+  ['various', ['assorted', 'sundry', 'miscellaneous']],
+  ['process', ['mechanism', 'routine', 'sequence']],
+  ['provide', ['furnish', 'supply', 'yield']],
+  ['require', ['call for', 'demand', 'necessitate']],
+  ['develop', ['cultivate', 'forge', 'evolve']],
+  ['achieve', ['attain', 'pull off', 'secure']],
+  ['support', ['bolster', 'underpin', 'sustain']],
+  ['improve', ['refine', 'sharpen', 'elevate']],
+  ['address', ['tackle', 'confront', 'deal with']],
+  ['maintain', ['uphold', 'preserve', 'sustain']],
+  ['increase', ['ramp up', 'amplify', 'swell']],
+  ['decrease', ['shrink', 'taper', 'dwindle']],
+  ['consider', ['weigh', 'mull over', 'examine']],
+  ['identify', ['pinpoint', 'spot', 'single out']],
+  ['generate', ['produce', 'spawn', 'yield']],
+  ['evaluate', ['gauge', 'appraise', 'assess']],
+  ['benefits', ['perks', 'upsides', 'gains']],
+  ['features', ['traits', 'aspects', 'qualities']],
+  ['industry', ['sector', 'field', 'trade']],
+  ['solution', ['fix', 'remedy', 'answer']],
+  ['strategy', ['game plan', 'playbook', 'blueprint']],
+  ['continue', ['keep at', 'carry on', 'persist']],
+  ['emerging', ['rising', 'budding', 'up-and-coming']],
+  ['relevant', ['pertinent', 'applicable', 'germane']],
+  ['specific', ['particular', 'precise', 'exact']],
+  ['positive', ['favorable', 'upbeat', 'encouraging']],
+  ['ensuring', ['guaranteeing', 'making certain', 'seeing to it']],
+];
+
 // Module-level cache to avoid duplicate API calls
 const synonymCache = new Map<string, string | null>();
 
@@ -105,7 +140,9 @@ function preserveCase(original: string, replacement: string): string {
   return replacement;
 }
 
-async function getSimplestSynonym(word: string): Promise<string | null> {
+// Perplexity-aware synonym selection: instead of always picking the most common
+// synonym, randomly select across frequency tiers to increase unpredictability.
+async function getPerplexityAwareSynonym(word: string): Promise<string | null> {
   const lower = word.toLowerCase();
 
   if (lower.length < 6 || countSyllables(lower) < 4) return null;
@@ -131,24 +168,41 @@ async function getSimplestSynonym(word: string): Promise<string | null> {
       return null;
     }
 
-    const withFreq = data.map(item => {
-      const fTag = item.tags?.find(t => t.startsWith('f:'));
-      const freq = fTag ? parseFloat(fTag.slice(2)) : 0;
-      return { word: item.word, freq };
-    });
+    const origSyllables = countSyllables(lower);
+    const withFreq = data
+      .map(item => {
+        const fTag = item.tags?.find(t => t.startsWith('f:'));
+        const freq = fTag ? parseFloat(fTag.slice(2)) : 0;
+        return { word: item.word, freq };
+      })
+      // Reject synonyms that are way more complex (3+ more syllables) or very rare
+      .filter(s => s.freq >= 0.5 && countSyllables(s.word) <= origSyllables + 2);
 
-    // Sort by frequency descending — highest freq = most common = most human
-    withFreq.sort((a, b) => b.freq - a.freq);
-
-    // Only replace if the synonym is simpler (fewer syllables)
-    const best = withFreq[0];
-    if (best && countSyllables(best.word) < countSyllables(lower)) {
-      synonymCache.set(lower, best.word);
-      return best.word;
+    if (withFreq.length === 0) {
+      synonymCache.set(lower, null);
+      return null;
     }
 
-    synonymCache.set(lower, null);
-    return null;
+    // Sort by frequency descending
+    withFreq.sort((a, b) => b.freq - a.freq);
+
+    // Perplexity-aware weighted selection:
+    // 40% → most common, 35% → mid-frequency, 25% → less common
+    let picked: typeof withFreq[0];
+    const roll = Math.random();
+    if (roll < 0.40 || withFreq.length === 1) {
+      picked = withFreq[0]; // most common
+    } else if (roll < 0.75 && withFreq.length >= 3) {
+      picked = withFreq[1 + Math.floor(Math.random() * Math.min(2, withFreq.length - 1))]; // mid
+    } else if (withFreq.length >= 4) {
+      const lo = Math.min(3, withFreq.length - 1);
+      picked = withFreq[lo + Math.floor(Math.random() * (withFreq.length - lo))]; // less common
+    } else {
+      picked = withFreq[Math.floor(Math.random() * withFreq.length)]; // fallback
+    }
+
+    synonymCache.set(lower, picked.word);
+    return picked.word;
   } catch {
     synonymCache.set(lower, null);
     return null;
@@ -165,7 +219,7 @@ async function batchFetch(
     const batch = words.slice(i, i + concurrency);
     const settled = await Promise.allSettled(
       batch.map(async w => {
-        const syn = await getSimplestSynonym(w);
+        const syn = await getPerplexityAwareSynonym(w);
         return { word: w, syn };
       })
     );
@@ -207,8 +261,18 @@ export async function applyDynamicSynonyms(text: string): Promise<string> {
     }
   }
 
-  // Step 1: Apply static offline fallback first (always runs, no network needed)
+  // Step 0: Apply perplexity boosters stochastically (30% of occurrences)
   let result = text;
+  for (const [word, alternatives] of PERPLEXITY_BOOSTERS) {
+    const regex = new RegExp(`\\b${word}\\b`, 'gi');
+    result = result.replace(regex, (matched) => {
+      if (Math.random() > 0.30) return matched; // keep original 70% of the time
+      const alt = alternatives[Math.floor(Math.random() * alternatives.length)];
+      return preserveCase(matched, alt);
+    });
+  }
+
+  // Step 1: Apply static offline fallback first (always runs, no network needed)
   for (const [formal, simple] of STATIC_SIMPLIFY) {
     // Skip if already handled by vocabMap
     if (vocabKeys.has(formal.toLowerCase())) continue;

@@ -184,6 +184,49 @@ function calcAvgWordLength(text: string): number {
   return words.reduce((sum, w) => sum + w.length, 0) / words.length;
 }
 
+// --- Signal 7: Sentence Starter Diversity ---
+
+function calcStarterDiversity(text: string): { ratio: number; total: number } {
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+  if (sentences.length < 4) return { ratio: 1, total: sentences.length };
+  const starters = sentences.map(s => {
+    const words = s.trim().split(/\s+/);
+    return (words.slice(0, 2).join(' ')).toLowerCase();
+  });
+  const unique = new Set(starters).size;
+  return { ratio: unique / starters.length, total: starters.length };
+}
+
+// --- Signal 8: Bigram Entropy ---
+
+function calcBigramEntropy(text: string): { ratio: number; total: number } {
+  const words = text.toLowerCase().match(/\b[a-z]+\b/g) || [];
+  if (words.length < 10) return { ratio: 1, total: 0 };
+  const bigrams: string[] = [];
+  for (let i = 0; i < words.length - 1; i++) {
+    bigrams.push(words[i] + ' ' + words[i + 1]);
+  }
+  const unique = new Set(bigrams).size;
+  return { ratio: unique / bigrams.length, total: bigrams.length };
+}
+
+// --- Signal 9: Punctuation Diversity ---
+
+function calcPunctuationDiversity(text: string): { types: number; details: string } {
+  const punctTypes: Record<string, boolean> = {};
+  if (/\./.test(text)) punctTypes['period'] = true;
+  if (/,/.test(text)) punctTypes['comma'] = true;
+  if (/;/.test(text)) punctTypes['semicolon'] = true;
+  if (/:/.test(text)) punctTypes['colon'] = true;
+  if (/[!]/.test(text)) punctTypes['exclamation'] = true;
+  if (/[?]/.test(text)) punctTypes['question'] = true;
+  if (/[\u2014]|--/.test(text)) punctTypes['dash'] = true;
+  if (/\(/.test(text)) punctTypes['parenthesis'] = true;
+  if (/\.\.\.|\u2026/.test(text)) punctTypes['ellipsis'] = true;
+  const types = Object.keys(punctTypes).length;
+  return { types, details: Object.keys(punctTypes).join(', ') };
+}
+
 // --- Chatbot artifact detection ---
 
 const CHATBOT_ARTIFACTS = [
@@ -278,6 +321,31 @@ export function detectAIPatterns(text: string): DetectionReport {
   if (avgWL > 5.5) wlScore = 10;
   else if (avgWL > 5.0) wlScore = 5;
   signals.push({ name: 'Word Complexity', score: wlScore, maxScore: 10, detail: `Avg ${avgWL.toFixed(1)} chars/word` });
+
+  // Signal 7: Sentence starter diversity (up to 10pts)
+  const { ratio: starterRatio, total: starterTotal } = calcStarterDiversity(text);
+  let starterScore = 0;
+  if (starterTotal >= 4) {
+    if (starterRatio < 0.5) starterScore = 10;
+    else if (starterRatio < 0.7) starterScore = 5;
+  }
+  signals.push({ name: 'Starter Diversity', score: starterScore, maxScore: 10, detail: `${(starterRatio * 100).toFixed(0)}% unique starters (${starterTotal} sentences)` });
+
+  // Signal 8: Bigram entropy (up to 10pts)
+  const { ratio: bigramRatio, total: bigramTotal } = calcBigramEntropy(text);
+  let bigramScore = 0;
+  if (bigramTotal >= 10) {
+    if (bigramRatio < 0.55) bigramScore = 10;
+    else if (bigramRatio < 0.65) bigramScore = 5;
+  }
+  signals.push({ name: 'Bigram Entropy', score: bigramScore, maxScore: 10, detail: `${(bigramRatio * 100).toFixed(0)}% unique bigrams (${bigramTotal} total)` });
+
+  // Signal 9: Punctuation diversity (up to 5pts)
+  const { types: punctTypes, details: punctDetails } = calcPunctuationDiversity(text);
+  let punctScore = 0;
+  if (punctTypes <= 2) punctScore = 5;
+  else if (punctTypes <= 3) punctScore = 3;
+  signals.push({ name: 'Punctuation Diversity', score: punctScore, maxScore: 5, detail: `${punctTypes} types: ${punctDetails}` });
 
   // Minor signals
   const hasEmojis = /[\u{1F300}-\u{1FFFF}\u{2600}-\u{27BF}]/u.test(text);
