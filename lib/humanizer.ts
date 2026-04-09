@@ -1343,6 +1343,112 @@ function fixSentenceIntegrity(text: string): string {
   return result.replace(/ {2,}/g, ' ').trim();
 }
 
+// --- Final Quality Refinement ---
+// Runs LAST — after injectImperfections and applyRandomSpacing.
+// Polishing only: removes remaining quality issues without changing meaning.
+// Never adds new randomness; only cleans up artifacts.
+
+// Contrast sentences inserted by semanticNonLinearity — can break logical flow
+const FILLER_CONTRAST_SENTENCES = [
+  'Then again, not everyone sees it that way.',
+  "That's not the whole story, though.",
+  "It's more complicated than it looks.",
+  'Some would push back on this.',
+  'The reality is usually messier.',
+  'Not every case plays out this way.',
+];
+
+// Unnatural phrase patterns that arise from combined pipeline transformations
+const FINAL_UNNATURAL_PHRASES: [RegExp, string][] = [
+  // Gerund + abstract noun + "of" combos that read awkwardly
+  [/\b(continuing|ongoing|continued)\s+promotion\s+of\b/gi, 'advancement of'],
+  [/\bcontinuing\s+drive\s+of\b/gi, 'drive for'],
+  [/\bcontinuing\s+improvement\s+of\b/gi, 'improvement of'],
+  // Double-replacement artifacts from PERPLEXITY_BOOSTERS colliding
+  [/\bcall for\s+need(s?)\b/gi, 'require'],
+  [/\bdemand\s+need(s?)\b/gi, 'need$1'],
+  [/\btackle\s+deal\s+with\b/gi, 'tackle'],
+  // Perplexity booster + vocabMap collision (e.g. "thorough" + wrong noun)
+  [/\bthorough\s+(angle|tack|fix|answer)\b/gi, 'thorough approach'],
+  [/\bcareful\s+(angle|tack|fix|answer)\b/gi, 'careful approach'],
+];
+
+function finalQualityRefinement(text: string): string {
+  let result = text;
+  const isFormal = detectFormalRegister(result);
+
+  // ── Phase 1: Strict Tone Protection ──
+  // Safety-net: revert any formal→casual downgrade that survived all earlier passes.
+  if (isFormal) {
+    // "groups [verb]" in subject position → "organizations [verb]"
+    result = result.replace(
+      /\b(groups|Groups)\s+(that|must|have|are|were|will|can|should|need|which|who)\b/g,
+      (_m, g, verb) => (g[0] === 'G' ? 'Organizations' : 'organizations') + ' ' + verb,
+    );
+    // "groups'" possessive in formal context
+    result = result.replace(/\bgroups'\s+/g, "organizations' ");
+    result = result.replace(/\bGroups'\s+/g, "Organizations' ");
+    // "navigate" may have been replaced by "handle" in formal/regulatory context
+    result = result.replace(/\bhandle\s+(complex\s+regulatory|regulatory\s+landscapes?|these\s+complex)\b/gi,
+      (m) => m.replace(/^handle/i, (h) => h[0] === 'H' ? 'Navigate' : 'navigate'));
+  }
+
+  // ── Phase 2: Remove unnatural phrases ──
+  for (const [pattern, fix] of FINAL_UNNATURAL_PHRASES) {
+    result = result.replace(pattern, (m) => preserveCase(m, fix));
+  }
+
+  // ── Phase 3: Remove irrelevant inserted sentences ──
+  // These contrast sentences are injected stochastically and can break flow
+  // in professional or academic text. Remove them entirely.
+  // Also handles the case where diversifyPunctuation merged the contrast sentence
+  // with the following sentence via a colon (e.g. "The reality is messier: X..." → "X...").
+  for (const sentence of FILLER_CONTRAST_SENTENCES) {
+    const phrase = sentence.replace(/\.$/, ''); // without trailing period
+    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/'/g, "[''']");
+    // Case 1: standalone sentence (exact match with period)
+    result = result.replace(new RegExp(`\\s*${escaped}\\.\\s*`, 'g'), ' ');
+    // Case 2: merged via colon — remove filler prefix, capitalise what follows
+    result = result.replace(
+      new RegExp(`\\s*${escaped}\\s*:\\s*([a-z])`, 'g'),
+      (_m, firstChar) => ' ' + firstChar.toUpperCase(),
+    );
+  }
+  result = result.replace(/ {2,}/g, ' ').replace(/\.\s{2,}/g, '. ');
+
+  // ── Phase 4: Flow coherence ──
+  // Fix capitalization breaks from sentence removal
+  result = result.replace(/([.!?])\s+([a-z])/g, (_m, p, c) => `${p} ${c.toUpperCase()}`);
+  // Collapse double-period artifacts
+  result = result.replace(/\.\s*\./g, '.');
+
+  // ── Phase 5: Subtle imperfections only ──
+  // Cap space-before-punctuation artifacts to max ~1 per 120 words.
+  // The injectImperfections pass can create clusters that are visually obvious.
+  const wordCount = result.split(/\s+/).length;
+  const maxArtifacts = Math.max(1, Math.round(wordCount / 120));
+
+  // Count existing space-before-punctuation instances (both period and comma)
+  const artifactCount = (result.match(/\w (?=[.,])/g) || []).length;
+
+  if (artifactCount > maxArtifacts) {
+    let kept = 0;
+    const keepRate = maxArtifacts / artifactCount;
+    // Reduce artifacts while keeping roughly maxArtifacts scattered instances
+    result = result.replace(/(\w) ([.,])/g, (match, word, punct) => {
+      if (kept < maxArtifacts && Math.random() < keepRate + 0.1) {
+        kept++;
+        return match;          // keep this artifact
+      }
+      return word + punct;     // remove the space
+    });
+  }
+
+  // ── Phase 6: Final safety check ──
+  result = result.replace(/ {2,}/g, ' ').trim();
+  return result;
+}
+
 // --- Orchestrator ---
 
 type PassFn = (text: string) => string | Promise<string>;
@@ -1403,6 +1509,10 @@ export async function humanizeText(
   if (settings.randomSpacingEnabled) {
     currentText = applyRandomSpacing(currentText, settings.randomSpacingIntensity);
   }
+
+  // Final Quality Refinement — runs LAST, after all spacing injection.
+  // Removes tone downgrades, unnatural phrases, filler sentences, excess artifacts.
+  currentText = finalQualityRefinement(currentText);
 
   return {
     originalText: text,
