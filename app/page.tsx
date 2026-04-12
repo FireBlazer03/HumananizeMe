@@ -48,6 +48,7 @@ export default function Home() {
     burstinessMode: 'strong',
     randomSpacingEnabled: true,
     randomSpacingIntensity: 'medium',
+    professionalMode: false,
   });
   const [detectionReport, setDetectionReport] = useState<DetectionReportType | null>(null);
   const [humanizerResult, setHumanizerResult] = useState<HumanizerResult | null>(null);

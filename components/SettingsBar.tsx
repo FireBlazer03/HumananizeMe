@@ -115,7 +115,7 @@ export default function SettingsBar({
                 randomSpacingIntensity: e.target.value as SpacingIntensity,
               })
             }
-            disabled={isProcessing}
+            disabled={isProcessing || settings.professionalMode}
             style={{
               padding: '4px 8px',
               fontSize: '14px',
@@ -123,6 +123,7 @@ export default function SettingsBar({
               borderRadius: '6px',
               backgroundColor: 'white',
               color: '#374151',
+              opacity: settings.professionalMode ? 0.4 : 1,
             }}
           >
             <option value="low">Low</option>
@@ -130,6 +131,42 @@ export default function SettingsBar({
             <option value="high">High</option>
           </select>
         )}
+      </div>
+
+      {/* Row 3: Professional Mode */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          paddingTop: '8px',
+          borderTop: '1px solid #e5e7eb',
+        }}
+      >
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            userSelect: 'none',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={settings.professionalMode}
+            onChange={(e) =>
+              onSettingsChange({ ...settings, professionalMode: e.target.checked })
+            }
+            disabled={isProcessing}
+            style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
+          />
+          <span style={{ fontWeight: 500, color: '#374151' }}>Professional Mode</span>
+        </label>
+        <span style={{ fontSize: '12px', color: '#6b7280' }}>
+          Keeps formal tone — disables casual phrases, contrast sentences, and spacing artifacts
+        </span>
       </div>
     </div>
   );
