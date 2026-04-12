@@ -7,6 +7,7 @@ export interface HumanizerSettings {
   burstinessMode: BurstinessMode;
   randomSpacingEnabled: boolean;
   randomSpacingIntensity: SpacingIntensity;
+  professionalMode: boolean;
 }
 
 export interface PassResult {
