@@ -1,9 +1,6 @@
 // Tone refinement test — shows BEFORE and AFTER the refineNaturalTone pass
 // Usage: npx tsx scripts/tone-test.ts
 
-// We import the full pipeline AND manually run the tone refinement
-// to show the diff between pre-tone and post-tone output.
-
 import { humanizeText } from '../lib/humanizer';
 import { HumanizerSettings } from '../types';
 
@@ -12,6 +9,7 @@ const settings: HumanizerSettings = {
   burstinessMode: 'strong',
   randomSpacingEnabled: false, // disabled for clean comparison
   randomSpacingIntensity: 'medium',
+  professionalMode: false,
 };
 
 const TESTS = [
@@ -30,35 +28,24 @@ async function run() {
     console.log(`\n${'='.repeat(70)}`);
     console.log(`  ${test.name}`);
     console.log(`${'='.repeat(70)}`);
-
     console.log(`\n  ORIGINAL:`);
     console.log(`  ${test.text}\n`);
 
-    // Run the full pipeline (which now includes refineNaturalTone)
     const result = await humanizeText(test.text, settings);
-
-    // The passes array includes results for each step.
-    // refineNaturalTone is the second-to-last pass (before imperfections).
-    // The pass BEFORE it (fixSentenceIntegrity) is the "BEFORE tone" state.
     const passes = result.passes;
     const tonePassIdx = passes.findIndex(p => p.passName.includes('Refining'));
     const beforeTone = tonePassIdx > 0 ? passes[tonePassIdx - 1].text : '';
     const afterTone = tonePassIdx >= 0 ? passes[tonePassIdx].text : '';
 
-    console.log(`  BEFORE refineNaturalTone (after fixSentenceIntegrity):`);
+    console.log(`  BEFORE refineNaturalTone:`);
     console.log(`  ${beforeTone}\n`);
-
     console.log(`  AFTER refineNaturalTone:`);
     console.log(`  ${afterTone}\n`);
 
-    // Show specific improvements
     console.log(`  IMPROVEMENTS:`);
     const diffs: string[] = [];
-
-    // Split into sentences and compare
     const beforeSentences = beforeTone.split(/(?<=[.!?])\s+/);
     const afterSentences = afterTone.split(/(?<=[.!?])\s+/);
-
     for (let i = 0; i < Math.min(beforeSentences.length, afterSentences.length); i++) {
       if (beforeSentences[i] !== afterSentences[i]) {
         diffs.push(`    BEFORE: "${beforeSentences[i].trim().slice(0, 100)}..."`);
@@ -66,12 +53,8 @@ async function run() {
         diffs.push('');
       }
     }
-
-    if (diffs.length === 0) {
-      console.log('    No changes (text was already natural)');
-    } else {
-      console.log(diffs.join('\n'));
-    }
+    if (diffs.length === 0) console.log('    No changes (text was already natural)');
+    else console.log(diffs.join('\n'));
 
     console.log(`  FINAL OUTPUT (with imperfections):`);
     console.log(`  ${result.finalText}\n`);

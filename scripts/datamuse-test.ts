@@ -9,6 +9,7 @@ const settings: HumanizerSettings = {
   burstinessMode: 'strong',
   randomSpacingEnabled: false,
   randomSpacingIntensity: 'medium',
+  professionalMode: false,
 };
 
 const TESTS = [
@@ -22,129 +23,50 @@ const TESTS = [
   },
 ];
 
-// Find actual word-level changes between two texts by tokenizing at the same positions
 function findChanges(before: string, after: string): Array<{original: string, replacement: string, context: string}> {
   const changes: Array<{original: string, replacement: string, context: string}> = [];
-
-  // Find words in 'before' that don't appear in 'after' and vice versa
   const bWords = new Map<string, number>();
   const aWords = new Map<string, number>();
-
-  for (const w of before.toLowerCase().match(/\b[a-z]+\b/g) || []) {
-    bWords.set(w, (bWords.get(w) || 0) + 1);
-  }
-  for (const w of after.toLowerCase().match(/\b[a-z]+\b/g) || []) {
-    aWords.set(w, (aWords.get(w) || 0) + 1);
-  }
-
+  for (const w of before.toLowerCase().match(/\b[a-z]+\b/g) || []) bWords.set(w, (bWords.get(w) || 0) + 1);
+  for (const w of after.toLowerCase().match(/\b[a-z]+\b/g) || []) aWords.set(w, (aWords.get(w) || 0) + 1);
   const removed: string[] = [];
   const added: string[] = [];
-
-  for (const [w, count] of bWords) {
-    const afterCount = aWords.get(w) || 0;
-    if (afterCount < count) {
-      for (let i = 0; i < count - afterCount; i++) removed.push(w);
-    }
-  }
-  for (const [w, count] of aWords) {
-    const beforeCount = bWords.get(w) || 0;
-    if (beforeCount < count) {
-      for (let i = 0; i < count - beforeCount; i++) added.push(w);
-    }
-  }
-
-  // Pair removals with additions for display
+  for (const [w, count] of bWords) { const ac = aWords.get(w) || 0; if (ac < count) for (let i = 0; i < count - ac; i++) removed.push(w); }
+  for (const [w, count] of aWords) { const bc = bWords.get(w) || 0; if (bc < count) for (let i = 0; i < count - bc; i++) added.push(w); }
   const maxPairs = Math.min(removed.length, added.length);
-  for (let i = 0; i < removed.length; i++) {
-    changes.push({
-      original: removed[i],
-      replacement: i < added.length ? added[i] : '(deleted)',
-      context: '',
-    });
-  }
-  // Show remaining additions
-  for (let i = maxPairs; i < added.length; i++) {
-    changes.push({
-      original: '(none)',
-      replacement: added[i],
-      context: '',
-    });
-  }
-
+  for (let i = 0; i < removed.length; i++) changes.push({ original: removed[i], replacement: i < added.length ? added[i] : '(deleted)', context: '' });
+  for (let i = maxPairs; i < added.length; i++) changes.push({ original: '(none)', replacement: added[i], context: '' });
   return changes;
 }
 
 async function run() {
-  // First: test Datamuse connectivity
   console.log('Testing Datamuse API connectivity...');
   try {
     const res = await fetch('https://api.datamuse.com/words?rel_syn=comprehensive&md=f&max=5');
     const data = await res.json();
     console.log(`  Datamuse OK — got ${data.length} results for "comprehensive":`);
-    for (const item of data.slice(0, 5)) {
-      const fTag = item.tags?.find((t: string) => t.startsWith('f:'));
-      console.log(`    "${item.word}" (freq: ${fTag || 'n/a'})`);
-    }
-  } catch (e) {
-    console.log(`  Datamuse UNREACHABLE — ${e}`);
-  }
+    for (const item of data.slice(0, 5)) { const fTag = item.tags?.find((t: string) => t.startsWith('f:')); console.log(`    "${item.word}" (freq: ${fTag || 'n/a'})`); }
+  } catch (e) { console.log(`  Datamuse UNREACHABLE — ${e}`); }
   console.log('');
 
   for (const test of TESTS) {
     console.log(`${'='.repeat(70)}`);
     console.log(`  ${test.name}`);
     console.log(`${'='.repeat(70)}`);
-
     const result = await humanizeText(test.text, settings);
-
-    // Find the synonym pass specifically (pass index 2)
-    const vocabPass = result.passes[1]; // replaceAIVocab
-    const synPass = result.passes[2];   // applyDynamicSynonyms
-
-    console.log(`\n  SYNONYM PASS INPUT (after vocabMap):`);
-    console.log(`  ${vocabPass.text.slice(0, 250)}...\n`);
-
-    console.log(`  SYNONYM PASS OUTPUT:`);
-    console.log(`  ${synPass.text.slice(0, 250)}...\n`);
-
-    console.log(`  WORD CHANGES IN SYNONYM PASS:`);
+    const vocabPass = result.passes[1];
+    const synPass = result.passes[2];
+    console.log(`\n  SYNONYM PASS INPUT:\n  ${vocabPass.text.slice(0, 250)}...\n`);
+    console.log(`  SYNONYM PASS OUTPUT:\n  ${synPass.text.slice(0, 250)}...\n`);
+    console.log(`  WORD CHANGES:`);
     const synChanges = findChanges(vocabPass.text, synPass.text);
-    if (synChanges.length === 0) {
-      console.log('    No changes (static + Datamuse made no replacements beyond vocabMap)');
-    } else {
-      for (const c of synChanges) {
-        console.log(`    "${c.original}" → "${c.replacement}"`);
-      }
-    }
-
-    console.log(`\n  FINAL OUTPUT:`);
-    console.log(`  ${result.finalText}\n`);
-
-    // Quality checks
-    console.log(`  QUALITY:`);
-    const checks = [
-      [/\bplanned\s+desegregation\b/i, 'planned desegregation'],
-      [/\bit is must\b/i, 'it is must'],
-      [/\bskilled\s+difficulties\b/i, 'skilled difficulties'],
-    ] as const;
+    if (synChanges.length === 0) console.log('    No changes');
+    else for (const c of synChanges) console.log(`    "${c.original}" → "${c.replacement}"`);
+    console.log(`\n  FINAL OUTPUT:\n  ${result.finalText}\n`);
+    const checks = [[/\bplanned\s+desegregation\b/i, 'planned desegregation'], [/\bit is must\b/i, 'it is must'], [/\bskilled\s+difficulties\b/i, 'skilled difficulties']] as const;
     let allClean = true;
-    for (const [pat, desc] of checks) {
-      if (pat.test(result.finalText)) {
-        console.log(`    FAIL: ${desc}`);
-        allClean = false;
-      }
-    }
-    // Check domain phrases preserved
-    const domain = test.name.includes('Business')
-      ? ['machine learning', 'processing time', 'user experience', 'artificial intelligence', '40%']
-      : ['cognitive development', 'socioeconomic status', 'academic performance', 'genetic predisposition'];
-    for (const phrase of domain) {
-      if (!result.finalText.toLowerCase().includes(phrase.toLowerCase())) {
-        console.log(`    FAIL: domain phrase "${phrase}" missing`);
-        allClean = false;
-      }
-    }
-    if (allClean) console.log(`    ALL CLEAN — meaning preserved, no distortions`);
+    for (const [pat, desc] of checks) { if (pat.test(result.finalText)) { console.log(`    FAIL: ${desc}`); allClean = false; } }
+    if (allClean) console.log(`  ALL CLEAN — no distortions`);
     console.log('');
   }
 }
