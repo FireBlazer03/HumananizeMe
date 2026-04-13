@@ -13,6 +13,7 @@ const settings: HumanizerSettings = {
   burstinessMode: 'strong',
   randomSpacingEnabled: false,
   randomSpacingIntensity: 'medium',
+  professionalMode: false,
 };
 
 // Text crafted to trigger all four issues the final pass addresses:
