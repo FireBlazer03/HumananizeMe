@@ -13,15 +13,16 @@ export default function InputPanel({ text, onTextChange, onScan, isProcessing }:
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Input</h2>
-        <span className="text-xs font-medium text-gray-400">{wordCount} words</span>
+      <div className="flex items-center justify-between mb-1.5">
+        <h2 className="text-sm font-bold text-gray-700 tracking-wide">INPUT</h2>
+        <span className="text-xs font-medium text-gray-400 tabular-nums">{wordCount} words</span>
       </div>
+      <div className="h-px bg-gray-200/70 mb-4" />
 
       {/* Textarea Card */}
-      <div className="relative flex-1 rounded-xl border border-gray-200/80 bg-white/80 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
+      <div className="relative flex-1 rounded-xl inner-card overflow-hidden">
         <textarea
-          className="w-full h-full min-h-[280px] p-5 resize-y bg-transparent text-gray-700 text-sm leading-relaxed focus:outline-none placeholder-gray-400"
+          className="w-full h-full min-h-[300px] p-6 resize-y bg-gray-50/50 text-gray-700 text-sm focus:outline-none placeholder-gray-400/70"
           placeholder="Paste AI-generated text here..."
           value={text}
           onChange={(e) => onTextChange(e.target.value)}
@@ -33,7 +34,7 @@ export default function InputPanel({ text, onTextChange, onScan, isProcessing }:
       <button
         onClick={onScan}
         disabled={!text.trim() || isProcessing}
-        className="mt-3 w-full py-2.5 px-4 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="mt-4 w-full py-2.5 px-4 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span className="flex items-center justify-center gap-2">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

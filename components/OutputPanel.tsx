@@ -150,50 +150,53 @@ export default function OutputPanel({ originalText, outputText }: OutputPanelPro
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex bg-gray-100 rounded-lg p-0.5">
-          <button
-            onClick={() => setActiveTab('output')}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
-              activeTab === 'output'
-                ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Output
-          </button>
-          <button
-            onClick={() => setActiveTab('changes')}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
-              activeTab === 'changes'
-                ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Changes
-          </button>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-4">
+          <h2 className="text-sm font-bold text-gray-700 tracking-wide">OUTPUT</h2>
+          <div className="flex bg-gray-100/80 rounded-lg p-0.5">
+            <button
+              onClick={() => setActiveTab('output')}
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                activeTab === 'output'
+                  ? 'bg-white text-gray-800 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Text
+            </button>
+            <button
+              onClick={() => setActiveTab('changes')}
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                activeTab === 'changes'
+                  ? 'bg-white text-gray-800 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Changes
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-400">{wordCount} words</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-gray-400 tabular-nums">{wordCount} words</span>
           {outputText && (
             <button
               onClick={handleCopy}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 active:scale-[0.95] ${
                 copied
-                  ? 'bg-green-100 text-green-700 border border-green-200'
-                  : 'text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                  ? 'bg-green-50 text-green-600 border border-green-200'
+                  : 'text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
               }`}
             >
               {copied ? (
-                <span className="flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <span className="flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                   Copied!
                 </span>
               ) : (
-                <span className="flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <span className="flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                   Copy
@@ -203,35 +206,36 @@ export default function OutputPanel({ originalText, outputText }: OutputPanelPro
           )}
         </div>
       </div>
+      <div className="h-px bg-gray-200/70 mb-4" />
 
       {/* Output Card */}
-      <div className="flex-1 min-h-[280px] rounded-xl border border-gray-200/80 bg-white/80 overflow-auto shadow-sm">
+      <div className="flex-1 min-h-[300px] rounded-xl inner-card overflow-auto">
         {!outputText ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3 p-8">
-            <svg className="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="w-10 h-10 text-gray-300/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
-            <span className="text-sm">Humanized text will appear here</span>
+            <span className="text-sm font-normal text-gray-400">Humanized text will appear here</span>
           </div>
         ) : activeTab === 'output' ? (
-          <pre className="p-5 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap font-sans animate-fade-in">
+          <pre className="p-6 text-sm text-gray-700 whitespace-pre-wrap font-sans animate-fade-in" style={{ lineHeight: '1.8' }}>
             {outputText}
           </pre>
         ) : (
-          <div className="p-5 text-sm leading-relaxed animate-fade-in">
+          <div className="p-6 text-sm animate-fade-in" style={{ lineHeight: '1.8' }}>
             {diffSegments.map((seg, i) => {
               if (seg.type === 'same') {
-                return <span key={i}>{seg.text}</span>;
+                return <span key={i} className="text-gray-700">{seg.text}</span>;
               }
               if (seg.type === 'removed') {
                 return (
-                  <span key={i} className="bg-red-100 text-red-700 line-through rounded-sm px-0.5">
+                  <span key={i} className="bg-red-100/80 text-red-700 line-through rounded px-0.5">
                     {seg.text}
                   </span>
                 );
               }
               return (
-                <mark key={i} className="bg-green-100 text-green-700 rounded-sm px-0.5">
+                <mark key={i} className="bg-green-100/80 text-green-700 rounded px-0.5">
                   {seg.text}
                 </mark>
               );
