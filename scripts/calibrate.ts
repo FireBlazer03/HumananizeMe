@@ -10,6 +10,7 @@ const settings: HumanizerSettings = {
   burstinessMode: 'strong',
   randomSpacingEnabled: true,
   randomSpacingIntensity: 'medium',
+  professionalMode: false,
 };
 
 const TESTS = [
