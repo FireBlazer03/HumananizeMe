@@ -181,10 +181,10 @@ export default function OutputPanel({ originalText, outputText }: OutputPanelPro
           {outputText && (
             <button
               onClick={handleCopy}
-              className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 active:scale-[0.95] ${
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 active:scale-95 ${
                 copied
-                  ? 'bg-green-50 text-green-600 border border-green-200'
-                  : 'text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
+                  ? 'bg-green-50 text-green-600 border border-green-200 shadow-sm shadow-green-100'
+                  : 'text-gray-500 bg-white/80 border border-gray-200 hover:bg-white hover:border-gray-300 hover:text-gray-700 hover:shadow-sm'
               }`}
             >
               {copied ? (
@@ -206,23 +206,28 @@ export default function OutputPanel({ originalText, outputText }: OutputPanelPro
           )}
         </div>
       </div>
-      <div className="h-px bg-gray-200/70 mb-4" />
+      <div className="h-px bg-gray-200/60 mb-4" />
 
       {/* Output Card */}
       <div className="flex-1 min-h-[300px] rounded-xl inner-card overflow-auto">
         {!outputText ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3 p-8">
-            <svg className="w-10 h-10 text-gray-300/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-            <span className="text-sm font-normal text-gray-400">Humanized text will appear here</span>
+          <div className="flex flex-col items-center justify-center h-full gap-4 p-10">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
+              <svg className="w-8 h-8 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-400">Humanized text will appear here</p>
+              <p className="text-xs text-gray-300 mt-1">Paste your text and click Humanize to get started</p>
+            </div>
           </div>
         ) : activeTab === 'output' ? (
-          <pre className="p-6 text-sm text-gray-700 whitespace-pre-wrap font-sans animate-fade-in" style={{ lineHeight: '1.8' }}>
+          <pre className="p-6 text-sm text-gray-700 whitespace-pre-wrap font-sans animate-fade-in" style={{ lineHeight: '1.85' }}>
             {outputText}
           </pre>
         ) : (
-          <div className="p-6 text-sm animate-fade-in" style={{ lineHeight: '1.8' }}>
+          <div className="p-6 text-sm animate-fade-in" style={{ lineHeight: '1.85' }}>
             {diffSegments.map((seg, i) => {
               if (seg.type === 'same') {
                 return <span key={i} className="text-gray-700">{seg.text}</span>;

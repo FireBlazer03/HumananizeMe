@@ -71,10 +71,9 @@ export default function DetectionReport({ report }: DetectionReportProps) {
 
   return (
     <div className="rounded-xl inner-card overflow-hidden animate-fade-in">
-      {/* Collapsible Header */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50/40 transition-colors duration-200"
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/40 transition-colors duration-200"
       >
         <div className="flex items-center gap-3">
           <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">AI Detection Report</h3>
@@ -89,21 +88,19 @@ export default function DetectionReport({ report }: DetectionReportProps) {
           </span>
         </div>
         <svg
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
-      {/* Collapsible Content */}
       {isOpen && (
-        <div className="px-6 pb-6 space-y-6 border-t border-gray-100/80 animate-fade-in">
+        <div className="px-6 pb-6 space-y-6 border-t border-gray-100/60 animate-fade-in">
           <div className="pt-5">
             <ScoreMeter score={report.estimatedAIScore} />
           </div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-4 gap-2.5">
             {[
               { label: 'AI Vocab', value: report.aiVocabHits.length },
@@ -111,14 +108,13 @@ export default function DetectionReport({ report }: DetectionReportProps) {
               { label: 'Passive Voice', value: report.passiveVoiceCount },
               { label: 'Burstiness', value: report.burstinessLabel },
             ].map((stat) => (
-              <div key={stat.label} className="p-3 bg-gray-50/70 rounded-xl text-center">
+              <div key={stat.label} className="p-3 bg-gray-50/60 rounded-xl text-center">
                 <div className="text-base font-bold text-gray-700">{stat.value}</div>
                 <div className="text-[10px] text-gray-400 mt-0.5 font-medium">{stat.label}</div>
               </div>
             ))}
           </div>
 
-          {/* Signal Breakdown */}
           {report.signals && report.signals.length > 0 && (
             <div>
               <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Signal Breakdown</h4>
@@ -136,7 +132,6 @@ export default function DetectionReport({ report }: DetectionReportProps) {
             </div>
           )}
 
-          {/* Vocab Hits */}
           {report.aiVocabHits.length > 0 && (
             <div>
               <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">AI Vocabulary Found</h4>
@@ -158,7 +153,6 @@ export default function DetectionReport({ report }: DetectionReportProps) {
             </div>
           )}
 
-          {/* Chatbot Artifacts */}
           {report.chatbotArtifacts.length > 0 && (
             <div>
               <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">Chatbot Artifacts</h4>
@@ -175,7 +169,6 @@ export default function DetectionReport({ report }: DetectionReportProps) {
             </div>
           )}
 
-          {/* Extra flags */}
           {(report.hasEmojis || report.hasCurlyQuotes) && (
             <div className="flex gap-2">
               {report.hasEmojis && (
