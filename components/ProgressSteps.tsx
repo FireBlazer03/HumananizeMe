@@ -20,16 +20,15 @@ export default function ProgressSteps({ steps, visible }: ProgressStepsProps) {
 
   return (
     <div className="rounded-xl inner-card overflow-hidden animate-fade-in">
-      {/* Header with progress bar */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-6 py-4 hover:bg-gray-50/40 transition-colors duration-200"
+        className="w-full px-6 py-4 hover:bg-white/40 transition-colors duration-200"
       >
         <div className="flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-3">
             <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Processing Details</h3>
             {activeStep && !isComplete && (
-              <span className="text-xs font-medium text-indigo-600 animate-pulse">
+              <span className="text-xs font-medium text-indigo-500 animate-pulse">
                 {activeStep.label}...
               </span>
             )}
@@ -45,7 +44,7 @@ export default function ProgressSteps({ steps, visible }: ProgressStepsProps) {
           <div className="flex items-center gap-3">
             <span className="text-xs font-mono text-gray-400 tabular-nums">{completedCount}/{steps.length}</span>
             <svg
-              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -53,20 +52,18 @@ export default function ProgressSteps({ steps, visible }: ProgressStepsProps) {
           </div>
         </div>
 
-        {/* Progress bar */}
         <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-500 ease-out ${
-              isComplete ? 'bg-green-400' : 'bg-indigo-400'
+            className={`h-full rounded-full transition-all duration-700 ease-out ${
+              isComplete ? 'bg-green-400' : 'bg-gradient-to-r from-indigo-400 to-purple-400'
             }`}
             style={{ width: `${progress}%` }}
           />
         </div>
       </button>
 
-      {/* Collapsible step details */}
       {isOpen && (
-        <div className="px-6 pb-5 border-t border-gray-100/80 animate-fade-in">
+        <div className="px-6 pb-5 border-t border-gray-100/60 animate-fade-in">
           <div className="flex flex-wrap gap-2 pt-4">
             {steps.map((step) => (
               <div
@@ -76,7 +73,7 @@ export default function ProgressSteps({ steps, visible }: ProgressStepsProps) {
                     ? 'bg-green-50/80 text-green-600'
                     : step.status === 'active'
                     ? 'bg-indigo-50/80 text-indigo-600 animate-pulse'
-                    : 'bg-gray-50/80 text-gray-400'
+                    : 'bg-gray-50/60 text-gray-400'
                 }`}
               >
                 {step.status === 'complete' ? (

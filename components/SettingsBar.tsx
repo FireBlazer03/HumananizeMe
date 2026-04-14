@@ -28,8 +28,8 @@ function ModeButton({
       disabled={disabled}
       className={`px-5 py-2 text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
         active
-          ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20'
-          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/25'
+          : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'
       }`}
     >
       {label}
@@ -53,13 +53,13 @@ function ToggleSwitch({
       aria-checked={enabled}
       onClick={() => !disabled && onChange(!enabled)}
       disabled={disabled}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
         enabled ? 'bg-indigo-500' : 'bg-gray-300'
       }`}
     >
       <span
-        className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-          enabled ? 'translate-x-6' : 'translate-x-1'
+        className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-all duration-300 ${
+          enabled ? 'translate-x-6 shadow-md' : 'translate-x-1'
         }`}
       />
     </button>
@@ -115,7 +115,7 @@ export default function SettingsBar({
         {/* Mode Selector */}
         <div className="flex items-center gap-3">
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Mode</span>
-          <div className="flex bg-gray-100/80 rounded-lg p-1">
+          <div className="flex bg-gray-100/80 rounded-xl p-1">
             <ModeButton
               label="Natural"
               active={!settings.professionalMode}
@@ -131,7 +131,6 @@ export default function SettingsBar({
           </div>
         </div>
 
-        {/* Spacer */}
         <div className="flex-1" />
 
         {/* Action Buttons */}
@@ -139,14 +138,14 @@ export default function SettingsBar({
           <button
             onClick={onClear}
             disabled={isProcessing}
-            className="px-5 py-2.5 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 active:scale-[0.97] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-5 py-2.5 text-sm font-medium text-gray-500 bg-white/80 border border-gray-200 rounded-xl hover:bg-white hover:border-gray-300 active:scale-[0.97] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Clear
           </button>
           <button
             onClick={onHumanize}
             disabled={!hasInput || isProcessing}
-            className="px-8 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-105 active:scale-[0.97] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg"
+            className="btn-primary-glow px-8 py-2.5 text-sm font-bold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none"
           >
             {isProcessing ? (
               <span className="flex items-center gap-2">
@@ -157,14 +156,19 @@ export default function SettingsBar({
                 Processing...
               </span>
             ) : (
-              'Humanize'
+              <span className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Humanize
+              </span>
             )}
           </button>
         </div>
       </div>
 
-      {/* Separator */}
-      <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+      {/* Gradient separator */}
+      <div className="h-px bg-gradient-to-r from-transparent via-gray-200/80 to-transparent" />
 
       {/* Row 2: Fine-tuning controls */}
       <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
@@ -179,8 +183,7 @@ export default function SettingsBar({
           />
         </div>
 
-        {/* Visual separator dot */}
-        <div className="hidden sm:block w-1 h-1 rounded-full bg-gray-300" />
+        <div className="hidden sm:block w-px h-6 bg-gray-200/70" />
 
         {/* Burstiness */}
         <div className="flex items-center gap-3">
@@ -193,8 +196,7 @@ export default function SettingsBar({
           />
         </div>
 
-        {/* Visual separator dot */}
-        <div className="hidden sm:block w-1 h-1 rounded-full bg-gray-300" />
+        <div className="hidden sm:block w-px h-6 bg-gray-200/70" />
 
         {/* Random Spacing Toggle */}
         <div className="flex items-center gap-3">
