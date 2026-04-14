@@ -104,24 +104,31 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
       <section className="hero-gradient relative">
-        <div className="relative z-10 max-w-5xl mx-auto px-4 pt-16 pb-20 sm:px-6 text-center">
+        <div className="relative z-10 max-w-5xl mx-auto px-4 pt-12 pb-16 sm:px-6 text-center">
           {/* Brand */}
-          <div className="inline-flex items-center gap-2 mb-8 animate-fade-in">
-            <span className="text-white/90 font-bold text-lg tracking-tight">HumanizeAI</span>
-            <span className="text-[10px] font-medium text-white/60 bg-white/15 px-2.5 py-1 rounded-full backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2.5 mb-6 animate-fade-in">
+            <span className="text-white/95 font-bold text-lg tracking-tight">HumanizeAI</span>
+            <span className="text-[10px] font-medium text-white/60 bg-white/12 px-2.5 py-1 rounded-full border border-white/10">
               Pure Algorithmic
             </span>
           </div>
 
-          {/* Main heading */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight tracking-tight mb-6 animate-fade-in-up">
-            Make AI Text Sound Human
-            <br />
-            <span className="text-white/80">— Instantly</span>
-          </h1>
+          {/* Radial glow behind heading */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
+              <div className="w-[500px] h-[200px] bg-white/8 rounded-full blur-3xl" />
+            </div>
+
+            {/* Main heading */}
+            <h1 className="relative text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold text-white tracking-[-0.02em] mb-5 animate-fade-in-up" style={{ lineHeight: '1.15' }}>
+              Make AI Text Sound Human
+              <br />
+              <span className="text-white/75">— Instantly</span>
+            </h1>
+          </div>
 
           {/* Subheading */}
-          <p className="text-lg sm:text-xl text-white/70 max-w-2xl mx-auto mb-10 leading-relaxed animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+          <p className="text-base sm:text-lg text-white/65 max-w-xl mx-auto mb-8 font-normal animate-fade-in-up" style={{ animationDelay: '0.1s', lineHeight: '1.7' }}>
             Transform AI-generated text into natural, human-sounding writing in seconds.
           </p>
 
@@ -129,9 +136,9 @@ export default function Home() {
           <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
             <button
               onClick={() => document.getElementById('tool-section')?.scrollIntoView({ behavior: 'smooth' })}
-              className="inline-flex items-center gap-2 px-8 py-4 text-base font-semibold text-indigo-700 bg-white rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.03] active:scale-[0.98] transition-all duration-200"
+              className="inline-flex items-center gap-2.5 px-8 py-3.5 text-sm font-semibold text-indigo-700 bg-white rounded-xl shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 hover:scale-105 active:scale-[0.97] transition-all duration-200"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
               Humanize Text
@@ -140,14 +147,20 @@ export default function Home() {
         </div>
 
         {/* Decorative blurred shapes */}
-        <div className="absolute top-10 left-10 w-72 h-72 bg-purple-400/20 rounded-full blur-3xl animate-pulse-slow" />
-        <div className="absolute bottom-10 right-10 w-96 h-96 bg-indigo-400/20 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-6 left-[5%] w-72 h-72 bg-purple-400/20 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="absolute bottom-0 right-[8%] w-80 h-80 bg-indigo-300/20 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-white/5 rounded-full blur-3xl" />
       </section>
 
       {/* Main Tool Section */}
-      <main id="tool-section" className="flex-1 max-w-6xl mx-auto w-full px-4 py-10 sm:px-6 -mt-8 relative z-20">
+      <main id="tool-section" className="flex-1 max-w-6xl mx-auto w-full px-4 pt-6 pb-10 sm:px-6 -mt-10 relative z-20">
+        {/* Soft glow behind the card */}
+        <div className="absolute inset-x-0 top-0 flex justify-center pointer-events-none" aria-hidden="true">
+          <div className="w-[700px] h-[200px] bg-indigo-400/8 rounded-full blur-3xl -translate-y-1/2" />
+        </div>
+
         {/* Floating Glass Card Container */}
-        <div className="glass-card-strong rounded-2xl p-6 sm:p-8 space-y-6">
+        <div className="glass-card-strong rounded-2xl p-6 sm:p-8 lg:p-10 space-y-7 relative">
           {/* Control Bar */}
           <SettingsBar
             settings={settings}
@@ -162,7 +175,7 @@ export default function Home() {
           <ProgressSteps steps={pipelineSteps} visible={isProcessing || humanizerResult !== null} />
 
           {/* Two-column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-7">
             {/* Left Column: Input */}
             <InputPanel
               text={inputText}

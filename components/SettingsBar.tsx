@@ -26,10 +26,10 @@ function ModeButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+      className={`px-5 py-2 text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
         active
-          ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/25'
-          : 'text-gray-600 hover:bg-gray-100'
+          ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20'
+          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
       }`}
     >
       {label}
@@ -66,6 +66,37 @@ function ToggleSwitch({
   );
 }
 
+function SegmentGroup<T extends string>({
+  options,
+  value,
+  onChange,
+  disabled,
+}: {
+  options: T[];
+  value: T;
+  onChange: (v: T) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex bg-gray-100/80 rounded-lg p-0.5">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          onClick={() => onChange(opt)}
+          disabled={disabled}
+          className={`px-3.5 py-1.5 text-xs font-medium rounded-md capitalize transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+            value === opt
+              ? 'bg-white text-gray-800 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function SettingsBar({
   settings,
   onSettingsChange,
@@ -78,13 +109,13 @@ export default function SettingsBar({
   const burstinessModes: BurstinessMode[] = ['mild', 'strong', 'aggressive'];
 
   return (
-    <div className="space-y-4">
-      {/* Row 1: Mode selector + action buttons */}
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="space-y-5">
+      {/* Row 1: Mode + Actions */}
+      <div className="flex flex-wrap items-center gap-4">
         {/* Mode Selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</span>
-          <div className="flex bg-gray-100 rounded-lg p-1">
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Mode</span>
+          <div className="flex bg-gray-100/80 rounded-lg p-1">
             <ModeButton
               label="Natural"
               active={!settings.professionalMode}
@@ -104,79 +135,70 @@ export default function SettingsBar({
         <div className="flex-1" />
 
         {/* Action Buttons */}
-        <button
-          onClick={onClear}
-          disabled={isProcessing}
-          className="px-5 py-2.5 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Clear
-        </button>
-        <button
-          onClick={onHumanize}
-          disabled={!hasInput || isProcessing}
-          className="px-7 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-        >
-          {isProcessing ? (
-            <span className="flex items-center gap-2">
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Processing...
-            </span>
-          ) : (
-            'Humanize'
-          )}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onClear}
+            disabled={isProcessing}
+            className="px-5 py-2.5 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 active:scale-[0.97] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Clear
+          </button>
+          <button
+            onClick={onHumanize}
+            disabled={!hasInput || isProcessing}
+            className="px-8 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-105 active:scale-[0.97] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg"
+          >
+            {isProcessing ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Processing...
+              </span>
+            ) : (
+              'Humanize'
+            )}
+          </button>
+        </div>
       </div>
 
+      {/* Separator */}
+      <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+
       {/* Row 2: Fine-tuning controls */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-4 border-t border-gray-200/60">
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
         {/* Imperfections */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Imperfections</label>
-          <div className="flex bg-gray-100 rounded-lg p-0.5">
-            {imperfectionLevels.map((level) => (
-              <button
-                key={level}
-                onClick={() => onSettingsChange({ ...settings, imperfectionLevel: level })}
-                disabled={isProcessing}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md capitalize transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-                  settings.imperfectionLevel === level
-                    ? 'bg-white text-gray-800 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {level}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-3">
+          <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Imperfections</label>
+          <SegmentGroup
+            options={imperfectionLevels}
+            value={settings.imperfectionLevel}
+            onChange={(v) => onSettingsChange({ ...settings, imperfectionLevel: v })}
+            disabled={isProcessing}
+          />
         </div>
+
+        {/* Visual separator dot */}
+        <div className="hidden sm:block w-1 h-1 rounded-full bg-gray-300" />
 
         {/* Burstiness */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Burstiness</label>
-          <div className="flex bg-gray-100 rounded-lg p-0.5">
-            {burstinessModes.map((mode) => (
-              <button
-                key={mode}
-                onClick={() => onSettingsChange({ ...settings, burstinessMode: mode })}
-                disabled={isProcessing}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md capitalize transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-                  settings.burstinessMode === mode
-                    ? 'bg-white text-gray-800 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-3">
+          <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Burstiness</label>
+          <SegmentGroup
+            options={burstinessModes}
+            value={settings.burstinessMode}
+            onChange={(v) => onSettingsChange({ ...settings, burstinessMode: v })}
+            disabled={isProcessing}
+          />
         </div>
 
+        {/* Visual separator dot */}
+        <div className="hidden sm:block w-1 h-1 rounded-full bg-gray-300" />
+
         {/* Random Spacing Toggle */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Spacing</label>
+        <div className="flex items-center gap-3">
+          <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Spacing</label>
           <ToggleSwitch
             enabled={settings.randomSpacingEnabled}
             onChange={(val) => onSettingsChange({ ...settings, randomSpacingEnabled: val })}
@@ -192,7 +214,7 @@ export default function SettingsBar({
                 })
               }
               disabled={isProcessing || settings.professionalMode}
-              className="px-2.5 py-1 text-xs font-medium border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200 disabled:opacity-40"
+              className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200 disabled:opacity-40"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
