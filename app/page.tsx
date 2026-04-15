@@ -245,21 +245,19 @@ export default function Home() {
       </footer>
 
       {/* AI doodle texture — subtle bottom-right background layer */}
-      <div
-        className="absolute pointer-events-none select-none z-0"
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/ai-doodle.svg"
+        alt=""
+        className="absolute pointer-events-none select-none"
         style={{
-          bottom: '-40px',
-          right: '-60px',
-          width: '780px',
-          height: '520px',
-          backgroundImage: 'url("/ai-doodle.svg")',
-          backgroundSize: 'contain',
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center',
-          opacity: 0.055,
-          filter: 'blur(1.5px)',
-          maskImage: 'radial-gradient(ellipse 90% 85% at 62% 62%, rgba(0,0,0,0.75) 8%, transparent 60%)',
-          WebkitMaskImage: 'radial-gradient(ellipse 90% 85% at 62% 62%, rgba(0,0,0,0.75) 8%, transparent 60%)',
+          bottom: '20px',
+          right: '-40px',
+          width: '720px',
+          height: 'auto',
+          zIndex: 1,
+          opacity: 0.048,
+          filter: 'blur(1px)',
         }}
         aria-hidden="true"
       />
