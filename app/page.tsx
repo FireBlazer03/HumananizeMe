@@ -97,7 +97,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative overflow-x-hidden">
       {/* ── HERO ── */}
       <section className="hero-cinematic relative pb-36 sm:pb-40">
         {/* Background layers */}
@@ -236,13 +236,33 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto py-10">
+      <footer className="mt-auto py-10 relative z-10">
         <div className="max-w-5xl mx-auto px-6 text-center">
           <p className="text-[11px] text-gray-400 tracking-wide">
             This tool improves writing style and naturalness. Always review output before use.
           </p>
         </div>
       </footer>
+
+      {/* AI doodle texture — subtle bottom-right background layer */}
+      <div
+        className="absolute pointer-events-none select-none z-0"
+        style={{
+          bottom: '-40px',
+          right: '-60px',
+          width: '780px',
+          height: '520px',
+          backgroundImage: 'url("/ai-doodle.svg")',
+          backgroundSize: 'contain',
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'center',
+          opacity: 0.055,
+          filter: 'blur(1.5px)',
+          maskImage: 'radial-gradient(ellipse 90% 85% at 62% 62%, rgba(0,0,0,0.75) 8%, transparent 60%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 90% 85% at 62% 62%, rgba(0,0,0,0.75) 8%, transparent 60%)',
+        }}
+        aria-hidden="true"
+      />
     </div>
   );
 }
