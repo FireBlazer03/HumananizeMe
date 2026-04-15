@@ -244,20 +244,19 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* AI doodle texture — subtle bottom-right background layer */}
+      {/* AI doodle texture — spread across lower whitespace */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/ai-doodle.svg"
+        src="/Gemini_Generated_Image_txvswytxvswytxvs.png"
         alt=""
-        className="absolute pointer-events-none select-none"
+        className="absolute left-0 w-full pointer-events-none select-none"
         style={{
-          bottom: '20px',
-          right: '-40px',
-          width: '720px',
-          height: 'auto',
+          bottom: 0,
           zIndex: 1,
-          opacity: 0.048,
-          filter: 'blur(1px)',
+          opacity: 0.055,
+          filter: 'blur(0.8px)',
+          maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
         }}
         aria-hidden="true"
       />
