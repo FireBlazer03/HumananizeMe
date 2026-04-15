@@ -97,7 +97,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-x-hidden">
+    <div className="min-h-screen flex flex-col">
       {/* ── HERO ── */}
       <section className="hero-cinematic relative pb-36 sm:pb-40">
         {/* Background layers */}
@@ -204,62 +204,66 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── TOOL SECTION — overlaps hero ── */}
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 pb-16 sm:px-6 -mt-24 sm:-mt-28 relative z-20">
-        <div id="tool-card" className="glass-card rounded-[24px] p-6 sm:p-8 lg:p-10 space-y-8">
-          <SettingsBar
-            settings={settings}
-            onSettingsChange={setSettings}
-            onHumanize={handleHumanize}
-            onClear={handleClear}
-            isProcessing={isProcessing}
-            hasInput={!!inputText.trim()}
-          />
+      {/* ── WHITE SECTION — contains tool card, footer, and doodle ── */}
+      <div className="relative overflow-hidden flex-1 flex flex-col bg-[#fafbfc]">
+        {/* AI doodle texture — confined to this white section only */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/Gemini_Generated_Image_txvswytxvswytxvs.png"
+          alt=""
+          className="absolute pointer-events-none select-none"
+          style={{
+            bottom: 0,
+            right: 0,
+            width: '120%',
+            maxWidth: 'none',
+            zIndex: 0,
+            opacity: 0.055,
+            filter: 'blur(1.5px)',
+          }}
+          aria-hidden="true"
+        />
 
-          <ProgressSteps steps={pipelineSteps} visible={isProcessing || humanizerResult !== null} />
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <InputPanel
-              text={inputText}
-              onTextChange={setInputText}
-              onScan={handleScan}
+        {/* ── TOOL SECTION — overlaps hero ── */}
+        <main className="max-w-5xl mx-auto w-full px-4 pb-16 sm:px-6 -mt-24 sm:-mt-28 relative z-10">
+          <div id="tool-card" className="glass-card rounded-[24px] p-6 sm:p-8 lg:p-10 space-y-8">
+            <SettingsBar
+              settings={settings}
+              onSettingsChange={setSettings}
+              onHumanize={handleHumanize}
+              onClear={handleClear}
               isProcessing={isProcessing}
+              hasInput={!!inputText.trim()}
             />
-            <OutputPanel
-              originalText={inputText}
-              outputText={humanizerResult?.finalText || ''}
-            />
+
+            <ProgressSteps steps={pipelineSteps} visible={isProcessing || humanizerResult !== null} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <InputPanel
+                text={inputText}
+                onTextChange={setInputText}
+                onScan={handleScan}
+                isProcessing={isProcessing}
+              />
+              <OutputPanel
+                originalText={inputText}
+                outputText={humanizerResult?.finalText || ''}
+              />
+            </div>
+
+            <DetectionReport report={detectionReport} />
           </div>
+        </main>
 
-          <DetectionReport report={detectionReport} />
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="mt-auto py-10 relative z-10">
-        <div className="max-w-5xl mx-auto px-6 text-center">
-          <p className="text-[11px] text-gray-400 tracking-wide">
-            This tool improves writing style and naturalness. Always review output before use.
-          </p>
-        </div>
-      </footer>
-
-      {/* AI doodle texture — spread across lower whitespace */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/Gemini_Generated_Image_txvswytxvswytxvs.png"
-        alt=""
-        className="absolute left-0 w-full pointer-events-none select-none"
-        style={{
-          bottom: 0,
-          zIndex: 1,
-          opacity: 0.055,
-          filter: 'blur(0.8px)',
-          maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
-        }}
-        aria-hidden="true"
-      />
+        {/* Footer */}
+        <footer className="mt-auto py-10 relative z-10">
+          <div className="max-w-5xl mx-auto px-6 text-center">
+            <p className="text-[11px] text-gray-400 tracking-wide">
+              This tool improves writing style and naturalness. Always review output before use.
+            </p>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
