@@ -99,7 +99,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col relative overflow-x-hidden">
       {/* ── HERO ── */}
-      <section className="hero-cinematic relative pb-36 sm:pb-40">
+      <section className="hero-cinematic relative pb-28 sm:pb-32">
         {/* Background layers */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
           {/* Mesh gradient blobs */}
@@ -166,7 +166,7 @@ export default function Home() {
         </nav>
 
         {/* Hero content */}
-        <div className="relative z-10 max-w-4xl mx-auto px-6 pt-16 sm:pt-20 text-center">
+        <div className="relative z-10 max-w-4xl mx-auto px-6 pt-10 sm:pt-14 text-center">
           {/* Radial glow orb — breathes slowly */}
           <div
             className="absolute top-1/2 left-1/2 w-[760px] h-[420px] rounded-full pointer-events-none animate-orb-breathe"
@@ -175,13 +175,13 @@ export default function Home() {
           />
 
           {/* Heading */}
-          <h1 className="relative font-display text-5xl sm:text-6xl lg:text-7xl font-normal tracking-[-0.02em] mb-7 animate-fade-in-up" style={{ lineHeight: '1.08' }}>
+          <h1 className="relative font-display text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-[-0.03em] mb-6 animate-fade-in-up" style={{ lineHeight: '1.06' }}>
             <span className="text-white">Make AI Text</span>
             <br />
-            <span className="gradient-text italic text-glow-violet">Sound Human</span>
-            <span className="text-white/42"> —</span>
+            <span className="gradient-text text-glow-violet">Sound Human</span>
+            <span className="text-white/40"> —</span>
             <br />
-            <span className="text-white/78">Instantly.</span>
+            <span className="text-white/75">Instantly.</span>
           </h1>
 
           {/* Subheading */}
@@ -205,7 +205,7 @@ export default function Home() {
       </section>
 
       {/* ── TOOL SECTION — overlaps hero ── */}
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 pb-16 sm:px-6 -mt-24 sm:-mt-28 relative z-20">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-4 pb-16 sm:px-6 -mt-16 sm:-mt-20 relative z-20">
         <div id="tool-card" className="glass-card rounded-[24px] p-6 sm:p-8 lg:p-10 space-y-8">
           <SettingsBar
             settings={settings}
