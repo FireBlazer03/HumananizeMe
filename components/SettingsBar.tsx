@@ -15,10 +15,10 @@ function Tooltip({ text }: { text: string }) {
   return (
     <div className="group relative inline-flex">
       <span className="w-3.5 h-3.5 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-[9px] font-bold cursor-default select-none hover:bg-gray-300 transition-colors">?</span>
-      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-        <div className="bg-gray-800 text-white text-[10px] leading-relaxed rounded-lg px-3 py-2 whitespace-nowrap shadow-lg max-w-[220px] whitespace-normal text-center">
+      <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 pt-2 hidden group-hover:block z-[9999]">
+        <div className="relative bg-gray-800 text-white text-[10px] leading-relaxed rounded-lg px-3 py-2 shadow-xl w-48 text-center">
+          <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 block w-0 h-0 border-x-4 border-x-transparent border-b-[6px] border-b-gray-800" />
           {text}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
         </div>
       </div>
     </div>

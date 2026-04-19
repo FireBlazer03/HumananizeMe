@@ -175,13 +175,13 @@ export default function Home() {
           />
 
           {/* Heading */}
-          <h1 className="relative font-display text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-[-0.03em] mb-6 animate-fade-in-up" style={{ lineHeight: '1.06' }}>
+          <h1 className="relative font-display text-5xl sm:text-6xl lg:text-7xl font-normal tracking-[-0.02em] mb-7 animate-fade-in-up" style={{ lineHeight: '1.08' }}>
             <span className="text-white">Make AI Text</span>
             <br />
-            <span className="gradient-text text-glow-violet">Sound Human</span>
-            <span className="text-white/40"> —</span>
+            <span className="gradient-text italic text-glow-violet">Sound Human</span>
+            <span className="text-white/42"> —</span>
             <br />
-            <span className="text-white/75">Instantly.</span>
+            <span className="text-white/78">Instantly.</span>
           </h1>
 
           {/* Subheading */}
