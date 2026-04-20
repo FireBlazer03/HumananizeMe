@@ -1,4 +1,5 @@
 import { preserveCase, splitSentences, isListDominatedText } from './humanizer-helpers';
+import { rng, rngPick } from './rng';
 
 // --- Pass: Remove Preambles ---
 
@@ -69,13 +70,12 @@ export function morphologyCorrection(text: string): string {
 
 // --- Pass: N-gram Entropy Diversification ---
 
+// Only entries whose alternatives are TRUE paraphrases preserving preposition semantics.
+// Removed: 'of the' (possession ≠ 'within'/'from'), 'to the' (destination ≠ 'toward'/'into'),
+//          'there is'/'there are' (existential swap loses the "find" framing).
 const BIGRAM_ALTERNATIVES: Record<string, string[]> = {
-  'of the': ['within the', 'from the', 'of this'],
-  'in the': ['inside the', 'within the', 'across the'],
-  'to the': ['toward the', 'for the', 'into the'],
-  'on the': ['upon the', 'along the'],
-  'there is': ['there exists', 'you find'],
-  'there are': ['you find', 'there exist'],
+  'in the': ['inside the', 'within the'],
+  'on the': ['upon the'],
 };
 
 export function diversifyNgrams(text: string): string {
@@ -88,8 +88,8 @@ export function diversifyNgrams(text: string): string {
     result = result.replace(regex, (matched) => {
       bigramCount[bigram]++;
       if (bigramCount[bigram] <= 1) return matched;
-      if (Math.random() > 0.50) return matched;
-      const alt = alts[Math.floor(Math.random() * alts.length)];
+      if (rng() > 0.50) return matched;
+      const alt = rngPick(alts);
       return preserveCase(matched, alt);
     });
   }
@@ -121,15 +121,15 @@ export function diversifySentenceStarters(text: string): string {
     starterFreq[starter].push(i);
   }
 
-  for (const [_starter, indices] of Object.entries(starterFreq)) {
+  for (const [, indices] of Object.entries(starterFreq)) {
     if (indices.length < 3) continue;
     for (let k = 1; k < indices.length; k++) {
-      if (Math.random() > 0.6) continue;
+      if (rng() > 0.6) continue;
       const idx = indices[k];
       const trimmed = sentences[idx].trim();
       for (const { pattern, replacements } of ARTICLE_OPENER_TRANSFORMS) {
         if (pattern.test(trimmed)) {
-          const rep = replacements[Math.floor(Math.random() * replacements.length)];
+          const rep = rngPick(replacements);
           const transformed = trimmed.replace(pattern, rep);
           sentences[idx] = sentences[idx].replace(trimmed, transformed);
           break;
@@ -145,7 +145,7 @@ export function diversifySentenceStarters(text: string): string {
     if (prev === curr && curr === next) {
       const trimmed = sentences[i].trim();
       const transitions = ['Meanwhile, ', 'At the same time, ', 'On a related note, ', 'Along those lines, '];
-      const trans = transitions[Math.floor(Math.random() * transitions.length)];
+      const trans = rngPick(transitions);
       const lowered = trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
       sentences[i] = sentences[i].replace(trimmed, trans + lowered);
     }
@@ -160,7 +160,7 @@ export function diversifyPunctuation(text: string): string {
   let result = text;
 
   result = result.replace(/,\s+and\s+/g, (matched) => {
-    if (Math.random() > 0.10) return matched;
+    if (rng() > 0.10) return matched;
     return '; ';
   });
 
@@ -171,7 +171,7 @@ export function diversifyPunctuation(text: string): string {
     if (!a || !b) continue;
     const aLen = a.split(/\s+/).length;
     const bLen = b.split(/\s+/).length;
-    if (aLen < 12 && bLen < 12 && aLen > 4 && bLen > 4 && Math.random() < 0.08) {
+    if (aLen < 12 && bLen < 12 && aLen > 4 && bLen > 4 && rng() < 0.08) {
       const aTrimmed = a.replace(/[.!?]\s*$/, '');
       const bLowered = b.charAt(0).toLowerCase() + b.slice(1);
       sentences[i] = aTrimmed + ': ';
@@ -180,8 +180,17 @@ export function diversifyPunctuation(text: string): string {
   }
   result = sentences.join('');
 
+  // Rule-of-three reshape: only fire when items look like filler (short nouns) so we
+  // don't drop a load-bearing third item like "cost" in "safety, speed, and cost".
+  const KNOWN_FILLER = new Set([
+    'innovation', 'efficiency', 'excellence', 'quality', 'performance',
+    'growth', 'value', 'scale', 'impact', 'success', 'synergy',
+  ]);
   result = result.replace(/\b(\w+),\s+(\w+),\s+and\s+(\w+)\b/g, (matched, a, b, c) => {
-    if (Math.random() > 0.05) return matched;
+    if (rng() > 0.05) return matched;
+    if (!KNOWN_FILLER.has(a.toLowerCase()) || !KNOWN_FILLER.has(b.toLowerCase()) || !KNOWN_FILLER.has(c.toLowerCase())) {
+      return matched;
+    }
     return `${a} and ${b} (along with ${c})`;
   });
 
@@ -213,9 +222,9 @@ export function perplexityInjection(text: string, isProfessional = false): strin
     const wordCount = trimmed.split(/\s+/).length;
     if (wordCount < 8) return s;
     if (/\(/.test(trimmed)) return s;
-    if (Math.random() > 0.15) return s;
+    if (rng() > 0.15) return s;
 
-    const type = Math.random();
+    const type = rng();
 
     if (type < 0.40) {
       const adverbials: Array<{ pattern: RegExp; fn: (m: RegExpMatchArray) => string }> = [
@@ -234,7 +243,7 @@ export function perplexityInjection(text: string, isProfessional = false): strin
     } else if (type < 0.70) {
       const commaIdx = trimmed.indexOf(',');
       if (commaIdx > 10 && commaIdx < trimmed.length - 20) {
-        const aside = PARENTHETICALS[Math.floor(Math.random() * PARENTHETICALS.length)];
+        const aside = rngPick(PARENTHETICALS);
         const before = trimmed.slice(0, commaIdx + 1);
         const after = trimmed.slice(commaIdx + 1);
         return s.replace(trimmed, before + ' ' + aside + after);
@@ -242,7 +251,7 @@ export function perplexityInjection(text: string, isProfessional = false): strin
       return s;
     } else {
       if (!/^(However|But|And|Or|So|Yet|Also|Still|Even|Just|Honestly|In practice|The thing)\b/.test(trimmed)) {
-        const connective = INFORMAL_CONNECTIVES[Math.floor(Math.random() * INFORMAL_CONNECTIVES.length)];
+        const connective = rngPick(INFORMAL_CONNECTIVES);
         const lowered = trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
         return s.replace(trimmed, connective + lowered);
       }
@@ -252,17 +261,14 @@ export function perplexityInjection(text: string, isProfessional = false): strin
 }
 
 // --- Pass: Semantic Non-linearity ---
-
-const CONTRAST_SENTENCES = [
-  'Then again, not everyone sees it that way.',
-  "That's not the whole story, though.",
-  "It's more complicated than it looks.",
-  'Some would push back on this.',
-  'The reality is usually messier.',
-  'Not every case plays out this way.',
-];
-
+//
+// Formerly also injected invented "contrast sentences" (e.g. "Then again, not everyone
+// sees it that way.") — that branch has been REMOVED because it fabricates content
+// that was not in the input and thus changes meaning. The sentence-swap branch is
+// preserved but is wrapped by the SafetyGuard (policy.mayReorder=true), which runs
+// the anaphora check to reject swaps that would orphan a pronoun reference.
 export function semanticNonLinearity(text: string, isProfessional = false): string {
+  if (isProfessional) return text;
   const paragraphs = text.split(/\n\n+/);
 
   const processed = paragraphs.map(para => {
@@ -272,22 +278,20 @@ export function semanticNonLinearity(text: string, isProfessional = false): stri
     const sentences = splitSentences(para);
     if (sentences.length < 4) return para;
 
-    const roll = Math.random();
-
-    if (roll < 0.20) {
+    if (rng() < 0.20) {
       const s1 = sentences[1]?.trim() || '';
       const s2 = sentences[2]?.trim() || '';
+      // Extra guard: don't swap if the second sentence opens with a pronoun — its
+      // antecedent must stay adjacent.
+      const s2First = s2.split(/\s+/)[0]?.toLowerCase().replace(/[^a-z']/g, '');
+      const PRONOUNS = new Set(['it', 'he', 'she', 'they', 'this', 'that', 'these', 'those', 'its', 'their']);
+      if (s2First && PRONOUNS.has(s2First)) return para;
       if (s1 && s2 && !s1.endsWith('?') && !s2.endsWith('?')) {
         const swapped = [...sentences];
         swapped[1] = sentences[2];
         swapped[2] = sentences[1];
         return swapped.join('').trim();
       }
-    } else if (roll < 0.35 && !isProfessional) {
-      const contrast = CONTRAST_SENTENCES[Math.floor(Math.random() * CONTRAST_SENTENCES.length)];
-      const result = [...sentences];
-      result.splice(2, 0, ' ' + contrast + ' ');
-      return result.join('').trim();
     }
 
     return para;
@@ -304,7 +308,9 @@ export function breakLongSentences(text: string): string {
     const words = sentence.trim().split(/\s+/);
     if (words.length < 15) return sentence;
 
-    const conjPattern = /,\s+(and|but|so|yet|while|although|because|since|when|if)\s+/i;
+    // Do NOT split on causal/conditional connectives — that silently drops the
+    // logical link between the two clauses. Only split on true coordinators.
+    const conjPattern = /,\s+(and|but|so|yet|while|although)\s+/i;
     let match = conjPattern.exec(sentence);
     if (match && match.index !== undefined) {
       const before = sentence.slice(0, match.index);
@@ -343,6 +349,34 @@ export function breakLongSentences(text: string): string {
 }
 
 // --- Pass: Merge Short Sentences ---
+//
+// Only merges sentences that share a content-word lemma, preventing two unrelated
+// topics from being conjoined with ", and ".
+
+function contentLemmas(sentence: string): Set<string> {
+  const STOP = new Set(['the', 'a', 'an', 'of', 'to', 'in', 'on', 'at', 'and', 'or', 'but',
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'has', 'have', 'had',
+    'this', 'that', 'these', 'those', 'it', 'its', 'for', 'with', 'from', 'as',
+    'will', 'would', 'can', 'could', 'may', 'might', 'must', 'should', 'do',
+    'does', 'did', 'not', 'no']);
+  const tokens = sentence.toLowerCase().match(/[a-z]+/g) || [];
+  const out = new Set<string>();
+  for (const t of tokens) {
+    if (STOP.has(t) || t.length < 4) continue;
+    // Basic lemma: strip common suffixes.
+    let lemma = t.replace(/(ing|ed|es|s)$/, '');
+    if (lemma.length < 3) lemma = t;
+    out.add(lemma);
+  }
+  return out;
+}
+
+function sharesContentWord(a: string, b: string): boolean {
+  const aLem = contentLemmas(a);
+  const bLem = contentLemmas(b);
+  for (const l of aLem) if (bLem.has(l)) return true;
+  return false;
+}
 
 export function mergeShortSentences(text: string): string {
   const sentences = splitSentences(text);
@@ -361,7 +395,8 @@ export function mergeShortSentences(text: string): string {
       curWords < 10 && curWords > 2 &&
       nextWords < 10 && nextWords > 2 &&
       next && !cur.startsWith('#') && !next.startsWith('#') &&
-      Math.random() < 0.4
+      sharesContentWord(cur, next) &&
+      rng() < 0.4
     ) {
       const merged = cur.replace(/[.!?]\s*$/, '') + ', and ' +
         next.charAt(0).toLowerCase() + next.slice(1);
@@ -392,9 +427,14 @@ export function varyOpeners(text: string): string {
   const sentences = splitSentences(text);
   return sentences.map((s, i) => {
     if (i % 3 !== 0) return s;
+    const trimmed = s.trim();
+    // Skip if the sentence contains a negation or a number — fronting a subordinate
+    // clause can shift emphasis in claims with hard figures or negated predicates.
+    if (/\b(not|never|no|cannot|n't|without|hardly|rarely)\b/i.test(trimmed)) return s;
+    if (/\d/.test(trimmed)) return s;
     for (const [pattern, replacement] of OPENER_TRANSFORMS) {
-      if (pattern.test(s.trim())) {
-        return s.trim().replace(pattern, replacement) + ' ';
+      if (pattern.test(trimmed)) {
+        return trimmed.replace(pattern, replacement) + ' ';
       }
     }
     return s;

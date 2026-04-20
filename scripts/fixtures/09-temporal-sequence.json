@@ -1,0 +1,9 @@
+{
+  "name": "Temporal sequence (first/then/finally)",
+  "text": "First, the team scoped the problem and identified three candidate solutions. Then they built prototypes for the two most promising candidates and tested each. Finally, they selected the solution that balanced performance and maintainability.",
+  "mustPreserve": [
+    "\\b(first|then|finally)\\b"
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "maxSentenceDelta": 3
+}

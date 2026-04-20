@@ -1,0 +1,11 @@
+{
+  "name": "Rule-of-three with load-bearing items",
+  "text": "The proposal must address safety, speed, and cost. Each of these carries weight with the committee. The safety review will run in parallel with the speed and cost analyses.",
+  "mustPreserve": [
+    "safety",
+    "speed",
+    "cost"
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "maxSentenceDelta": 3
+}

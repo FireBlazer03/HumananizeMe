@@ -1,0 +1,10 @@
+{
+  "name": "Conditional with negation",
+  "text": "If the server does not respond within the timeout window, the client will abort the request. Unless retries are disabled, the client will attempt the operation up to three more times. When the connection cannot be re-established, the user sees a clear error.",
+  "mustPreserve": [
+    "\\b(if|unless|when|whenever|until)\\b"
+  ],
+  "forbidden": ["teh", "adn", "taht", "wiht", "ahve"],
+  "negationsBefore": 2,
+  "maxSentenceDelta": 3
+}

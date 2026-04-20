@@ -1,0 +1,10 @@
+{
+  "name": "Comparative (more X than Y)",
+  "text": "The v2 model is faster than the v1 baseline by a wide margin. Accuracy improved more on long-tail inputs than on common queries. The cost per inference is lower than industry averages for models of this size.",
+  "mustPreserve": [
+    "\\bthan\\b",
+    "\\b(faster|more|lower)\\b"
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "maxSentenceDelta": 3
+}

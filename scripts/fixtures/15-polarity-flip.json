@@ -1,0 +1,9 @@
+{
+  "name": "Polarity verb flip guard",
+  "text": "The system allowed access to the archives for authenticated users. The policy permits data export in approved formats. The committee approved the budget increase without revision.",
+  "mustPreserve": [
+    "\\b(allowed|permits|approved)\\b"
+  ],
+  "forbidden": ["refused", "denied", "prohibited", "rejected", "declined"],
+  "maxSentenceDelta": 3
+}

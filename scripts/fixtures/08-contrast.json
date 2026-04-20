@@ -1,0 +1,9 @@
+{
+  "name": "Contrast (although/however)",
+  "text": "Although the prototype showed promise, the production version fell short of expectations. The latency was acceptable, however the throughput was below target. Despite the issues, the team learned valuable lessons about the architecture.",
+  "mustPreserve": [
+    "\\b(although|though|however|despite|whereas|but|yet)\\b"
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "maxSentenceDelta": 3
+}

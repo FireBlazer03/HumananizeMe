@@ -1,0 +1,12 @@
+{
+  "name": "Modal negation (should not / must not)",
+  "text": "The user should not delete the configuration file manually. Operators must not restart the service during peak traffic. The script cannot proceed without valid credentials.",
+  "mustPreserve": [
+    "\\b(should not|shouldn't)\\b",
+    "\\b(must not|mustn't)\\b",
+    "\\b(cannot|can't|can not)\\b"
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "negationsBefore": 4,
+  "maxSentenceDelta": 3
+}

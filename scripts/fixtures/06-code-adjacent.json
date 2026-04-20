@@ -1,0 +1,13 @@
+{
+  "name": "Code-adjacent prose with inline backticks",
+  "text": "Call `fetchData()` with a timeout of 5000 milliseconds. The return value is a Promise that resolves to `{ data, meta }`. If the server returns a 404, the function rejects with `NotFoundError`. Use `await` rather than `.then()` for clarity.",
+  "mustPreserve": [
+    "`fetchData\\(\\)`",
+    "`\\{ data, meta \\}`",
+    "`NotFoundError`",
+    "`await`",
+    "`\\.then\\(\\)`"
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "maxSentenceDelta": 3
+}

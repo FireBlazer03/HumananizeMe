@@ -1,0 +1,15 @@
+{
+  "name": "Transition-heavy prose — cadence pass must restructure",
+  "text": "Furthermore, the platform adopted a microservice architecture to improve modularity. Moreover, the team migrated the database to a managed service for reliability. Consequently, deployment times dropped by half. Additionally, the on-call burden decreased across every squad. Nevertheless, the migration surfaced hidden coupling in the billing subsystem. In conclusion, the overall effort paid off within two quarters.",
+  "mustPreserve": [
+    "microservice",
+    "database",
+    "deployment",
+    "billing"
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "assertions": [
+    { "type": "maxTransitionOpeners", "value": 2 }
+  ],
+  "maxSentenceDelta": 4
+}

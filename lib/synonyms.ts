@@ -1,4 +1,5 @@
 import { vocabReplacements } from './vocabMap';
+import { rng, rngPick } from './rng';
 
 // ── PHASE 5: Blocklist — words that must NEVER be replaced via Datamuse ──
 // These are high-risk words where even a "synonym" changes meaning or tone.
@@ -471,16 +472,23 @@ export async function applyDynamicSynonyms(text: string): Promise<string> {
     }
   }
 
-  // Step 1: Perplexity boosters — curated, stochastic 25%, quality+context-checked
+  // Step 1: Perplexity boosters — curated, stochastic 12%, quality+context+proximity-checked.
+  // Rate lowered from 25% to 12% so any individual swap is less likely and cumulative
+  // nuance loss across a document stays bounded. Each swap is additionally skipped when
+  // an invariant (number or SafetyGuard sentinel) lives within 3 tokens of the target.
   let result = text;
+  const INVARIANT_TOKEN = /(__(?:NUM|ENTITY|URL|CODE|QUOTE)_\d+__|\b\d[\d.,%$]*\b)/;
   for (const [word, alternatives] of PERPLEXITY_BOOSTERS) {
     const regex = new RegExp(`\\b${word}\\b`, 'gi');
-    result = result.replace(regex, (matched) => {
-      if (Math.random() > 0.25) return matched;
-      const alt = alternatives[Math.floor(Math.random() * alternatives.length)];
-      // Quality gate: reject if replacement degrades tone or precision
+    result = result.replace(regex, (matched, offset: number, src: string) => {
+      if (rng() > 0.12) return matched;
+      // Invariant proximity: scan 3 tokens left and right; if any is an invariant sentinel
+      // or bare number, skip the swap (protects adjacent facts / subject-verb agreement).
+      const leftCtx = src.slice(Math.max(0, offset - 80), offset).split(/\s+/).slice(-3).join(' ');
+      const rightCtx = src.slice(offset + matched.length, offset + matched.length + 80).split(/\s+/).slice(0, 3).join(' ');
+      if (INVARIANT_TOKEN.test(leftCtx) || INVARIANT_TOKEN.test(rightCtx)) return matched;
+      const alt = rngPick(alternatives);
       if (!isQualityReplacement(matched, alt)) return matched;
-      // Context gate: reject literal verbs in abstract/business contexts
       if (!isContextuallyValid(matched, alt, text)) return matched;
       return preserveCase(matched, alt);
     });

@@ -1,0 +1,13 @@
+{
+  "name": "List-heavy paragraph",
+  "text": "The release checklist has four steps. First, run the full test suite and confirm every test passes. Second, update the version number in the manifest file. Third, tag the release in source control with a signed annotation. Fourth, publish the artifacts to the registry and notify the subscribers.",
+  "mustPreserve": [
+    "\\b(first|second|third|fourth)\\b",
+    "test suite",
+    "version number",
+    "signed annotation",
+    "registry"
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "maxSentenceDelta": 3
+}

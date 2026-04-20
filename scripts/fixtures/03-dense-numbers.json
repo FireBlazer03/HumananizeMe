@@ -1,0 +1,18 @@
+{
+  "name": "Dense numbers",
+  "text": "In 2023 the division reported $1.2M in revenue, a 40% increase over 2022. The team grew from 12 engineers to 27, with a 95% retention rate. The company projects 2024 revenue of $1.8M and a headcount of 35.",
+  "mustPreserve": [
+    "\\$1\\.2M",
+    "40%",
+    "2023",
+    "2022",
+    "2024",
+    "\\$1\\.8M",
+    "95%",
+    "\\b12\\b",
+    "\\b27\\b",
+    "\\b35\\b"
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "maxSentenceDelta": 3
+}

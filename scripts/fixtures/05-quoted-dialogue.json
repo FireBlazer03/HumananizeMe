@@ -1,0 +1,11 @@
+{
+  "name": "Quoted dialogue",
+  "text": "The CEO said, \"We will ship by Friday or not at all.\" Engineering pushed back. \"Friday is aggressive,\" replied the lead, \"but we can make Monday with confidence.\" The team agreed on Monday.",
+  "mustPreserve": [
+    "\"We will ship by Friday or not at all\\.\"",
+    "\"Friday is aggressive,?\"",
+    "\"but we can make Monday with confidence\\.\""
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "maxSentenceDelta": 3
+}

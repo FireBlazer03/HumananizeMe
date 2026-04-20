@@ -1,0 +1,14 @@
+{
+  "name": "Pronoun-antecedent proximity",
+  "text": "The Bitcoin network uses a proof-of-work consensus mechanism. It is decentralized across thousands of nodes worldwide. The network has no single point of failure. It has been running continuously since 2009.",
+  "mustPreserve": [
+    "Bitcoin",
+    "proof-of-work",
+    "2009"
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "assertions": [
+    { "type": "entitySurvives", "value": "Bitcoin" }
+  ],
+  "maxSentenceDelta": 3
+}

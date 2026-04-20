@@ -1,0 +1,15 @@
+{
+  "name": "Named entities (persons + organizations)",
+  "text": "Satya Nadella announced that Microsoft would partner with OpenAI on a new research effort. The initiative, led by Dario Amodei at Anthropic, will focus on interpretability. Sundar Pichai of Google Research expressed interest in joining the consortium.",
+  "mustPreserve": [
+    "Satya Nadella",
+    "Microsoft",
+    "OpenAI",
+    "Dario Amodei",
+    "Anthropic",
+    "Sundar Pichai",
+    "Google Research"
+  ],
+  "forbidden": ["teh", "adn", "taht"],
+  "maxSentenceDelta": 3
+}

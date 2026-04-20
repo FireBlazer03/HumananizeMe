@@ -8,6 +8,11 @@ export interface HumanizerSettings {
   randomSpacingEnabled: boolean;
   randomSpacingIntensity: SpacingIntensity;
   professionalMode: boolean;
+  // Deterministic mode — when set, every stochastic branch uses a seeded PRNG.
+  seed?: number;
+  // When false, passes that reorder sentences or insert structural variation are disabled.
+  // Default: true (preserves current creative behaviour, guarded by SafetyGuard).
+  creativeRewriting?: boolean;
 }
 
 export interface PassResult {

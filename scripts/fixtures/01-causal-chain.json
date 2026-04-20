@@ -1,0 +1,9 @@
+{
+  "name": "Causal chain (because/so)",
+  "text": "The experiment failed because the catalyst was impure. So the team repeated the procedure with a fresh batch. The yield improved significantly since the reagents were fully validated.",
+  "mustPreserve": [
+    "\\b(because|since|so|as|therefore|hence|thus)\\b"
+  ],
+  "forbidden": ["teh", "adn", "taht", "wiht", "ahve", "Researchers found", "Then again"],
+  "maxSentenceDelta": 3
+}

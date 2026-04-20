@@ -1,15 +1,14 @@
 import { BurstinessMode } from '@/types';
 import { vocabReplacements } from './vocabMap';
-import { preserveCase, escapeRegex, isListDominatedText, splitSentences, CHATBOT_PHRASES } from './humanizer-helpers';
+import { preserveCase, escapeRegex, isListDominatedText, splitSentences, CHATBOT_PHRASE_PATTERNS } from './humanizer-helpers';
+import { rng, rngPick } from './rng';
 
 // --- Pass 1: Remove Chatbot Artifacts ---
 
 export function removeChatbotArtifacts(text: string): string {
   let result = text;
-  for (const phrase of CHATBOT_PHRASES) {
-    const escaped = escapeRegex(phrase);
-    const regex = new RegExp(escaped + '[.!?]?\\s*', 'gi');
-    result = result.replace(regex, '');
+  for (const pattern of CHATBOT_PHRASE_PATTERNS) {
+    result = result.replace(pattern, '');
   }
   result = result.replace(/ {2,}/g, ' ').replace(/\n\s*\n\s*\n/g, '\n\n');
   return result.trim();
@@ -113,9 +112,22 @@ export function fixFormatting(text: string): string {
 export function fixLanguagePatterns(text: string, isProfessional = false): string {
   let result = text;
 
-  // Remove negative parallelisms
-  result = result.replace(/[Ii]t'?s not just\s+(.+?),\s*it'?s\s+(.+?)\./g, "It's $2.");
-  result = result.replace(/[Nn]ot merely\s+(.+?),?\s*but\s+(?:also\s+)?(.+?)\./g, '$2.');
+  // Collapse negative parallelisms ONLY when safe:
+  //   - sentence is long enough that the emphasis was likely padding (≥ 14 words)
+  //   - neither clause carries a number or proper noun (load-bearing content)
+  const isPadded = (s: string) => s.split(/\s+/).length >= 14;
+  const noHardContent = (s: string) =>
+    !/\d/.test(s) && !/\b[A-Z][a-z]{2,}\b/.test(s);
+
+  result = result.replace(
+    /[Ii]t'?s not just\s+(.+?),\s*it'?s\s+(.+?)\./g,
+    (m, x, y) => (isPadded(m) && noHardContent(x) && noHardContent(y) ? `It's ${y}.` : m),
+  );
+  result = result.replace(
+    /[Nn]ot merely\s+(.+?),?\s*but\s+(?:also\s+)?(.+?)\./g,
+    (m, x, y) => (isPadded(m) && noHardContent(x) && noHardContent(y) ? `${y}.` : m),
+  );
+  // "not only X but also Y" → "X and Y" preserves both clauses, so keep it unconditional.
   result = result.replace(/[Nn]ot only\s+(.+?),?\s*but also\s+(.+)/g, '$1 and $2');
 
   // Fix copula avoidance
@@ -153,9 +165,7 @@ export function fixLanguagePatterns(text: string, isProfessional = false): strin
     if (isProfessional) {
       result = result.replace(pattern, formalReplacement);
     } else {
-      result = result.replace(pattern, () => {
-        return casualReplacements[Math.floor(Math.random() * casualReplacements.length)];
-      });
+      result = result.replace(pattern, () => rngPick(casualReplacements));
     }
   }
 
@@ -165,13 +175,17 @@ export function fixLanguagePatterns(text: string, isProfessional = false): strin
   result = result.replace(/(?:^|(?<=\.\s))It is important to note that\s*/gim, '');
   result = result.replace(/(?:^|(?<=\.\s))In order to understand .+?,\s*we must first look at\s*/gim, '');
 
-  // Rule-of-three padding removal
+  // Rule-of-three padding removal — ONLY when all three items are known filler abstracts.
+  // Prevents dropping load-bearing items like "cost" in "safety, speed, and cost".
+  const FILLER_TRIPLET = new Set([
+    'innovation', 'efficiency', 'excellence', 'quality', 'performance',
+    'growth', 'value', 'scale', 'impact', 'success', 'synergy', 'agility',
+    'engagement', 'alignment', 'momentum', 'transformation',
+  ]);
   result = result.replace(/\b(\w{3,9}),\s+(\w{3,9}),\s+and\s+(\w{3,9})\b/g, (match, a, b, c) => {
-    const abstracts = [a, b, c];
-    const allAbstract = abstracts.every((w: string) =>
-      w.length < 10 && /^[a-z]+$/i.test(w)
-    );
-    if (allAbstract) {
+    const all = [a, b, c].map((w: string) => w.toLowerCase());
+    const allFiller = all.every((w: string) => FILLER_TRIPLET.has(w));
+    if (allFiller) {
       return `${a} and ${b}`;
     }
     return match;
@@ -287,7 +301,7 @@ export function engineerBurstiness(text: string, mode: BurstinessMode): string {
         const s1 = sentences[mergeIdx].trim().replace(/[.!?]\s*$/, '');
         const s2raw = sentences[mergeIdx + 1].trim();
         const s2 = s2raw.charAt(0).toLowerCase() + s2raw.slice(1);
-        const connector = Math.random() < 0.5 ? ', and ' : '; ';
+        const connector = rng() < 0.5 ? ', and ' : '; ';
         sentences.splice(mergeIdx, 2, s1 + connector + s2 + ' ');
         lengths = getLengths();
         variance = calcVariance(lengths);
@@ -344,7 +358,7 @@ export function engineerBurstiness(text: string, mode: BurstinessMode): string {
           i + 1 < sentences.length &&
           aLen < collapseThresh &&
           sentences[i + 1].trim().split(/\s+/).length < collapseThresh &&
-          Math.random() < 0.4
+          rng() < 0.4
         ) {
           const a = sentences[i].trim().replace(/[.]\s*$/, '');
           const b = sentences[i + 1].trim();
@@ -380,29 +394,18 @@ export function engineerBurstiness(text: string, mode: BurstinessMode): string {
 
   let result = processedParagraphs.join('\n\n');
 
+  // Passive → active only when the agent is explicit. Never invent a subject.
   result = result.replace(
     /\b(The\s+\w+)\s+(was|were|is|are)\s+(\w+ed)\s+by\s+([\w\s]+?)([.,;!?])/gi,
     (_match, subject, _aux, verb, agent, punct) => `${agent.trim()} ${verb} ${subject.toLowerCase()}${punct}`
   );
-  result = result.replace(
-    /\b(\w[\w\s]{1,25}?)\s+(has|have)\s+been\s+(\w+ed)\b/gi,
-    (_match, subject, _aux, verb) => `${subject.trim()} ${verb}`
-  );
-  result = result.replace(
-    /\bIt\s+(was|is)\s+(\w+ed)\s+that\b/gi,
-    (_match, _aux, verb) => {
-      const subjects = ['They', 'People', 'Researchers', 'Experts'];
-      return `${subjects[Math.floor(Math.random() * subjects.length)]} ${verb} that`;
-    }
-  );
-  result = result.replace(
-    /\b([\w\s]{2,20}?)\s+can\s+be\s+(\w+)ed\b/gi,
-    (_match, subject, verbRoot) => `${Math.random() < 0.5 ? 'You' : 'We'} can ${verbRoot} ${subject.trim().toLowerCase()}`
-  );
-  result = result.replace(
-    /\b([\w\s]{2,20}?)\s+should\s+be\s+(\w+)ed\b/gi,
-    (_match, subject, verbRoot) => `You should ${verbRoot} ${subject.trim().toLowerCase()}`
-  );
+  // Removed:
+  //   - `"\\w has been \\w+ed"` blanket stripping — drops the "been" aspect marker.
+  //   - `"It was Xed that"` → invents a subject ("Researchers/Experts/People/They").
+  //   - `"X can be Yed"` → "You/We can Y X" invents an addressee.
+  //   - `"X should be Yed"` → "You should Y X" invents an addressee.
+  // These all fabricate content, which the SafetyGuard would reject anyway; removing
+  // them avoids the pass being a no-op after revert.
 
   return result;
 }
@@ -421,8 +424,10 @@ const ADVERB_VERB_REPLACEMENTS: [RegExp, string][] = [
   [/\bactively engage\b/gi, 'engage'],
   [/\bdirectly address\b/gi, 'address'],
   [/\bfundamentally change\b/gi, 'change'],
-  [/\bpositively impact\b/gi, 'help'],
-  [/\bnegatively impact\b/gi, 'hurt'],
+  // Preserve polarity strength: "positively/negatively impact" is a strong claim,
+  // not a weak "help/hurt". Use verbs of matching intensity.
+  [/\bpositively impact\b/gi, 'improve'],
+  [/\bnegatively impact\b/gi, 'harm'],
   [/\bsignificantly increase\b/gi, 'increase'],
   [/\bsignificantly decrease\b/gi, 'decrease'],
 ];
