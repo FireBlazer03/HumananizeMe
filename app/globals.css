@@ -54,6 +54,11 @@
   font-family: 'Instrument Serif', Georgia, serif;
 }
 
+/* ── UI heading font ── */
+.font-ui {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+
 /* ── Hero ── */
 .hero-cinematic {
   background: linear-gradient(170deg,
@@ -97,7 +102,6 @@
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
 }
 .glass-card:hover {
-  transform: translateY(-3px);
   box-shadow:
     0 0 0 1px rgba(139, 92, 246, 0.10),
     0 2px 4px rgba(0, 0, 0, 0.04),
