@@ -99,7 +99,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col relative overflow-x-hidden">
       {/* ── HERO ── */}
-      <section className="hero-cinematic relative pb-36 sm:pb-40">
+      <section className="hero-cinematic relative pb-28 sm:pb-32">
         {/* Background layers */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
           {/* Mesh gradient blobs */}
@@ -151,7 +151,7 @@ export default function Home() {
         <nav className="relative z-10 max-w-6xl mx-auto px-6 pt-6 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-white font-semibold text-base tracking-tight">HumanizeAI</span>
+              <span className="text-white font-semibold text-base tracking-tight font-ui">HumanizeAI</span>
               <span className="text-[9px] font-medium text-violet-300/60 bg-white/[0.06] px-2 py-0.5 rounded-full border border-white/[0.08] uppercase tracking-widest">
                 Beta
               </span>
@@ -166,7 +166,7 @@ export default function Home() {
         </nav>
 
         {/* Hero content */}
-        <div className="relative z-10 max-w-4xl mx-auto px-6 pt-16 sm:pt-20 text-center">
+        <div className="relative z-10 max-w-4xl mx-auto px-6 pt-10 sm:pt-14 text-center">
           {/* Radial glow orb — breathes slowly */}
           <div
             className="absolute top-1/2 left-1/2 w-[760px] h-[420px] rounded-full pointer-events-none animate-orb-breathe"
@@ -205,7 +205,7 @@ export default function Home() {
       </section>
 
       {/* ── TOOL SECTION — overlaps hero ── */}
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 pb-16 sm:px-6 -mt-24 sm:-mt-28 relative z-20">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-4 pb-16 sm:px-6 -mt-16 sm:-mt-20 relative z-20">
         <div id="tool-card" className="glass-card rounded-[24px] p-6 sm:p-8 lg:p-10 space-y-8">
           <SettingsBar
             settings={settings}
