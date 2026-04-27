@@ -178,3 +178,31 @@ textarea:focus { outline: none; }
 
 /* ── Global ── */
 body { line-height: 1.7; }
+
+/* ── Pipeline reactor ── */
+@keyframes reactor-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
+  50%       { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.04); }
+}
+@keyframes reactor-scan {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+@keyframes shimmer-move {
+  0%   { background-position: -800px 0; }
+  100% { background-position:  800px 0; }
+}
+
+/* ── Output shimmer loading ── */
+.output-shimmer-icon {
+  width: 36px; height: 36px; border-radius: 12px; align-self: center;
+  background: linear-gradient(90deg, #f5f3ff 0%, #ede9fe 50%, #f5f3ff 100%);
+  background-size: 800px 100%;
+  animation: shimmer-move 1.6s linear infinite;
+}
+.output-shimmer-line {
+  height: 11px; border-radius: 6px;
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+  background-size: 800px 100%;
+  animation: shimmer-move 1.6s linear infinite;
+}

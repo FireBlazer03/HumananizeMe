@@ -228,6 +228,8 @@ export default function Home() {
             <OutputPanel
               originalText={inputText}
               outputText={humanizerResult?.finalText || ''}
+              isProcessing={isProcessing}
+              currentStep={pipelineSteps.find(s => s.status === 'active')?.label}
             />
           </div>
 

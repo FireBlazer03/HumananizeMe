@@ -5,6 +5,8 @@ import { useMemo, useState } from 'react';
 interface OutputPanelProps {
   originalText: string;
   outputText: string;
+  isProcessing?: boolean;
+  currentStep?: string;
 }
 
 interface DiffSegment {
@@ -77,7 +79,7 @@ function simpleDiff(origWords: string[], modWords: string[]): DiffSegment[] {
   return segments;
 }
 
-export default function OutputPanel({ originalText, outputText }: OutputPanelProps) {
+export default function OutputPanel({ originalText, outputText, isProcessing, currentStep }: OutputPanelProps) {
   const [activeTab, setActiveTab] = useState<'output' | 'changes'>('output');
   const [copied, setCopied] = useState(false);
   const wordCount = outputText.trim() ? outputText.trim().split(/\s+/).length : 0;
@@ -150,7 +152,19 @@ export default function OutputPanel({ originalText, outputText }: OutputPanelPro
       </div>
 
       <div className="flex-1 min-h-[280px] rounded-2xl inner-card overflow-auto">
-        {!outputText ? (
+        {isProcessing && !outputText ? (
+          <div className="flex flex-col gap-4 p-7">
+            <div className="output-shimmer-icon" />
+            <p className="text-xs font-medium text-indigo-500 text-center">{currentStep || 'Working…'}</p>
+            <div className="flex flex-col gap-3">
+              <div className="output-shimmer-line" style={{ width: '100%' }} />
+              <div className="output-shimmer-line" style={{ width: '85%' }} />
+              <div className="output-shimmer-line" style={{ width: '72%' }} />
+              <div className="output-shimmer-line" style={{ width: '94%' }} />
+              <div className="output-shimmer-line" style={{ width: '66%' }} />
+            </div>
+          </div>
+        ) : !outputText ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 p-10">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-50 to-indigo-50 flex items-center justify-center">
               <svg className="w-6 h-6 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
