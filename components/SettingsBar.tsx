@@ -34,9 +34,12 @@ export default function SettingsBar({
   useEffect(() => {
     const idx = IMPERFECTION_LEVELS.indexOf(settings.imperfectionLevel);
     const btn = impBtnRefs.current[idx];
-    if (btn) {
-      setPinLeft(`${btn.offsetLeft + btn.offsetWidth / 2}px`);
-    }
+    if (!btn) return;
+    const scale = btn.closest('.ctl-scale') as HTMLElement | null;
+    if (!scale) return;
+    const scaleRect = scale.getBoundingClientRect();
+    const btnRect = btn.getBoundingClientRect();
+    setPinLeft(`${btnRect.left - scaleRect.left + btnRect.width / 2}px`);
   }, [settings.imperfectionLevel]);
 
   return (

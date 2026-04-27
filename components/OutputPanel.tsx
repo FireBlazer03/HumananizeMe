@@ -88,7 +88,12 @@ export default function OutputPanel({ originalText, outputText, isProcessing, cu
   useEffect(() => {
     const idx = activeTab === 'output' ? 0 : 1;
     const btn = tabRefs.current[idx];
-    if (btn) setInkStyle({ left: btn.offsetLeft, width: btn.offsetWidth });
+    if (!btn) return;
+    const tabs = btn.closest('.ctl-tabs') as HTMLElement | null;
+    if (!tabs) return;
+    const tabsRect = tabs.getBoundingClientRect();
+    const btnRect = btn.getBoundingClientRect();
+    setInkStyle({ left: btnRect.left - tabsRect.left, width: btnRect.width });
   }, [activeTab]);
   const wordCount = outputText.trim() ? outputText.trim().split(/\s+/).length : 0;
   const diffSegments = useMemo(() => {
