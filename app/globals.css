@@ -365,8 +365,8 @@ body { line-height: 1.7; }
 
 /* ── Glossy active stage specular ── */
 .stage-gloss {
-  position: absolute; inset: 0; border-radius: 14px; pointer-events: none; z-index: 1;
-  background: linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 52%);
+  position: absolute; inset: 0; border-radius: 14px; pointer-events: none; z-index: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.60) 0%, rgba(255,255,255,0) 48%);
   border-top: 1px solid rgba(255,255,255,0.88);
 }
 

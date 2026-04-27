@@ -82,7 +82,7 @@ export default function ProgressSteps({ steps, visible }: ProgressStepsProps) {
             return (
               <div
                 key={stage.num}
-                className="relative rounded-[14px] pt-4 pb-3.5 px-3 flex flex-col gap-2.5 transition-all duration-300"
+                className="relative rounded-[14px] transition-all duration-300"
                 style={{
                   background: stageState === 'done'
                     ? 'linear-gradient(180deg,#f0fdf4,#ffffff)'
@@ -112,6 +112,8 @@ export default function ProgressSteps({ steps, visible }: ProgressStepsProps) {
                   {stage.num}
                 </span>
 
+                {/* Inner content raised above gloss */}
+                <div className="relative pt-4 pb-3.5 px-3 flex flex-col gap-2.5" style={{ zIndex: 1 }}>
                 {/* Stage title + count */}
                 <div className="flex items-baseline justify-between">
                   <span
@@ -175,6 +177,7 @@ export default function ProgressSteps({ steps, visible }: ProgressStepsProps) {
                     <span>Awaiting {STAGES[STAGES.findIndex(s => s.name === stage.name) - 1]?.name ?? '…'}</span>
                   )}
                 </div>
+                </div>{/* end inner content wrapper */}
               </div>
             );
           })}

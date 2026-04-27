@@ -1,6 +1,5 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
 import { HumanizerSettings, ImperfectionLevel, BurstinessMode, SpacingIntensity } from '@/types';
 
 interface SettingsBarProps {
@@ -28,20 +27,6 @@ export default function SettingsBar({
   isProcessing,
   hasInput,
 }: SettingsBarProps) {
-  const impBtnRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [pinLeft, setPinLeft] = useState<string>('50%');
-
-  useEffect(() => {
-    const idx = IMPERFECTION_LEVELS.indexOf(settings.imperfectionLevel);
-    const btn = impBtnRefs.current[idx];
-    if (!btn) return;
-    const scale = btn.closest('.ctl-scale') as HTMLElement | null;
-    if (!scale) return;
-    const scaleRect = scale.getBoundingClientRect();
-    const btnRect = btn.getBoundingClientRect();
-    setPinLeft(`${btnRect.left - scaleRect.left + btnRect.width / 2}px`);
-  }, [settings.imperfectionLevel]);
-
   return (
     <div className="space-y-5">
       {/* Row 1: Mode + Actions */}
@@ -109,13 +94,10 @@ export default function SettingsBar({
         <div className="flex items-center gap-2.5">
           <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em]">Imperfections</label>
           <div className="ctl-scale">
-            <div className="rule" />
-            <div className="pin" style={{ left: pinLeft }} />
             <div className="ticks">
-              {IMPERFECTION_LEVELS.map((level, i) => (
+              {IMPERFECTION_LEVELS.map((level) => (
                 <button
                   key={level}
-                  ref={el => { impBtnRefs.current[i] = el; }}
                   className={settings.imperfectionLevel === level ? 'on' : ''}
                   onClick={() => onSettingsChange({ ...settings, imperfectionLevel: level })}
                   disabled={isProcessing}
