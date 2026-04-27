@@ -9,23 +9,12 @@ interface InputPanelProps {
 
 export default function InputPanel({ text, onTextChange, onScan, isProcessing }: InputPanelProps) {
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
-  const charCount = text.length;
-  const isLong = wordCount > 800;
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.15em]">Input</h2>
-        <div className="flex items-center gap-2.5">
-          {isLong && (
-            <span className="text-[10px] font-medium text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">
-              Long text — may slow processing
-            </span>
-          )}
-          <span className="text-[11px] font-medium text-gray-300 tabular-nums">
-            {wordCount} words · {charCount.toLocaleString()} chars
-          </span>
-        </div>
+        <span className="text-[11px] font-medium text-gray-300 tabular-nums">{wordCount} words</span>
       </div>
 
       <div className="relative flex-1 rounded-2xl inner-card overflow-hidden">
@@ -36,7 +25,7 @@ export default function InputPanel({ text, onTextChange, onScan, isProcessing }:
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
               </svg>
             </div>
-            <span className="text-xs text-gray-300">Paste your AI-generated text here</span>
+            <span className="text-xs text-gray-300">Paste your AI text here</span>
           </div>
         )}
         <textarea
@@ -51,14 +40,13 @@ export default function InputPanel({ text, onTextChange, onScan, isProcessing }:
       <button
         onClick={onScan}
         disabled={!text.trim() || isProcessing}
-        title="Analyse your text for AI patterns before humanizing"
         className="mt-3 w-full py-2 px-4 text-[11px] font-medium text-gray-400 hover:text-gray-600 border border-gray-200 rounded-full hover:border-gray-300 active:scale-[0.98] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <span className="flex items-center justify-center gap-1.5">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          Check AI Score
+          Scan for AI patterns
         </span>
       </button>
     </div>

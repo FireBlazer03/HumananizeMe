@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { PipelineStep } from '@/types';
 
 interface ProgressStepsProps {
@@ -10,11 +10,6 @@ interface ProgressStepsProps {
 
 export default function ProgressSteps({ steps, visible }: ProgressStepsProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const isProcessing = steps.some(s => s.status === 'active');
-
-  useEffect(() => {
-    if (isProcessing) setIsOpen(true);
-  }, [isProcessing]);
 
   if (!visible) return null;
 

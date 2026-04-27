@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { DetectionReport as DetectionReportType } from '@/types';
 
 interface DetectionReportProps {
@@ -57,14 +57,6 @@ function SignalBar({ name, score, maxScore, detail }: { name: string; score: num
 
 export default function DetectionReport({ report }: DetectionReportProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const prevReport = useRef<DetectionReportType | null>(null);
-
-  useEffect(() => {
-    if (report && report !== prevReport.current) {
-      setIsOpen(true);
-      prevReport.current = report;
-    }
-  }, [report]);
 
   if (!report) return null;
 

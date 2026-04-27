@@ -151,28 +151,15 @@ export default function OutputPanel({ originalText, outputText }: OutputPanelPro
 
       <div className="flex-1 min-h-[280px] rounded-2xl inner-card overflow-auto">
         {!outputText ? (
-          <div className="flex flex-col items-center justify-center h-full gap-5 p-10">
+          <div className="flex flex-col items-center justify-center h-full gap-4 p-10">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-50 to-indigo-50 flex items-center justify-center">
               <svg className="w-6 h-6 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
             </div>
-            <div className="text-center space-y-3">
+            <div className="text-center">
               <p className="text-xs font-medium text-gray-400">Humanized text appears here</p>
-              <ol className="text-[11px] text-gray-300 space-y-1 text-left list-none">
-                <li className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-indigo-50 text-indigo-400 flex items-center justify-center text-[9px] font-bold flex-shrink-0">1</span>
-                  Paste AI text on the left
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-indigo-50 text-indigo-400 flex items-center justify-center text-[9px] font-bold flex-shrink-0">2</span>
-                  Choose your mode &amp; settings
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-indigo-50 text-indigo-400 flex items-center justify-center text-[9px] font-bold flex-shrink-0">3</span>
-                  Click <strong className="text-gray-400">Humanize</strong> to transform
-                </li>
-              </ol>
+              <p className="text-[11px] text-gray-300 mt-1">Paste text and click Humanize</p>
             </div>
           </div>
         ) : activeTab === 'output' ? (

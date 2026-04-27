@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 56" width="200" height="56" fill="none">
+  <text x="0" y="38" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="600" fill="#1f2937" letter-spacing="-0.3">HumanizeAI</text>
+  <g transform="translate(150, 10)">
+    <rect x="0" y="0" width="38" height="16" rx="8" fill="rgba(124,58,237,0.08)" stroke="rgba(124,58,237,0.15)" stroke-width="1"></rect>
+    <text x="6" y="11" font-family="Inter, system-ui, sans-serif" font-size="8" font-weight="600" fill="#6d28d9" letter-spacing="1.6">BETA</text>
+  </g>
+</svg>

@@ -11,20 +11,6 @@ interface SettingsBarProps {
   hasInput: boolean;
 }
 
-function Tooltip({ text }: { text: string }) {
-  return (
-    <div className="group relative inline-flex">
-      <span className="w-3.5 h-3.5 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-[9px] font-bold cursor-default select-none hover:bg-gray-300 transition-colors">?</span>
-      <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 pt-2 hidden group-hover:block z-[9999]">
-        <div className="relative bg-gray-800 text-white text-[10px] leading-relaxed rounded-lg px-3 py-2 shadow-xl w-48 text-center">
-          <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 block w-0 h-0 border-x-4 border-x-transparent border-b-[6px] border-b-gray-800" />
-          {text}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function SegmentGroup<T extends string>({
   options,
   value,
@@ -78,7 +64,6 @@ export default function SettingsBar({
             <button
               onClick={() => onSettingsChange({ ...settings, professionalMode: false })}
               disabled={isProcessing}
-              title="Casual, conversational tone with natural quirks"
               className={`px-4 py-2 text-xs font-medium rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                 !settings.professionalMode
                   ? 'bg-white text-gray-800 shadow-sm'
@@ -90,7 +75,6 @@ export default function SettingsBar({
             <button
               onClick={() => onSettingsChange({ ...settings, professionalMode: true })}
               disabled={isProcessing}
-              title="Formal, polished tone suitable for work documents"
               className={`px-4 py-2 text-xs font-medium rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                 settings.professionalMode
                   ? 'bg-white text-gray-800 shadow-sm'
@@ -143,9 +127,8 @@ export default function SettingsBar({
 
       {/* Row 2: Fine-tuning */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em]">Imperfections</label>
-          <Tooltip text="How many natural human quirks to inject — typos, contractions, filler words. Higher = more human, less polished." />
           <SegmentGroup
             options={imperfectionLevels}
             value={settings.imperfectionLevel}
@@ -156,9 +139,8 @@ export default function SettingsBar({
 
         <div className="hidden sm:block w-px h-5 bg-gray-150" />
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em]">Burstiness</label>
-          <Tooltip text="Controls sentence-length variation. Humans mix long and short sentences. Higher = more varied rhythm." />
           <SegmentGroup
             options={burstinessModes}
             value={settings.burstinessMode}
@@ -169,9 +151,8 @@ export default function SettingsBar({
 
         <div className="hidden sm:block w-px h-5 bg-gray-150" />
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em]">Spacing</label>
-          <Tooltip text="Adds subtle random whitespace variations that mimic human typing patterns." />
           <button
             type="button"
             role="switch"
