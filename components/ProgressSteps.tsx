@@ -82,7 +82,7 @@ export default function ProgressSteps({ steps, visible }: ProgressStepsProps) {
             return (
               <div
                 key={stage.num}
-                className="relative rounded-[14px] pt-4 pb-3.5 px-3 flex flex-col gap-2.5 transition-all duration-300"
+                className="relative rounded-[14px] pt-4 pb-3.5 px-3 flex flex-col gap-2.5 transition-all duration-300 overflow-hidden"
                 style={{
                   background: stageState === 'done'
                     ? 'linear-gradient(180deg,#f0fdf4,#ffffff)'
@@ -100,6 +100,7 @@ export default function ProgressSteps({ steps, visible }: ProgressStepsProps) {
                   transform: stageState === 'active' ? 'translateY(-2px)' : 'none',
                 }}
               >
+                {isStageActive && <div className="stage-gloss" />}
                 {/* Stage number (Instrument Serif italic) */}
                 <span
                   className="absolute -top-[9px] left-3 font-display italic text-lg leading-none px-1.5"

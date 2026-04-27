@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 
 interface OutputPanelProps {
   originalText: string;
@@ -82,6 +82,14 @@ function simpleDiff(origWords: string[], modWords: string[]): DiffSegment[] {
 export default function OutputPanel({ originalText, outputText, isProcessing, currentStep }: OutputPanelProps) {
   const [activeTab, setActiveTab] = useState<'output' | 'changes'>('output');
   const [copied, setCopied] = useState(false);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [inkStyle, setInkStyle] = useState({ left: 0, width: 28 });
+
+  useEffect(() => {
+    const idx = activeTab === 'output' ? 0 : 1;
+    const btn = tabRefs.current[idx];
+    if (btn) setInkStyle({ left: btn.offsetLeft, width: btn.offsetWidth });
+  }, [activeTab]);
   const wordCount = outputText.trim() ? outputText.trim().split(/\s+/).length : 0;
   const diffSegments = useMemo(() => {
     if (!originalText || !outputText) return [];
@@ -103,21 +111,20 @@ export default function OutputPanel({ originalText, outputText, isProcessing, cu
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <h2 className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.15em]">Output</h2>
-          <div className="flex bg-gray-100/70 rounded-lg p-0.5">
+          <div className="ctl-tabs">
             <button
+              ref={el => { tabRefs.current[0] = el; }}
+              className={activeTab === 'output' ? 'on' : ''}
               onClick={() => setActiveTab('output')}
-              className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all duration-200 ${
-                activeTab === 'output' ? 'bg-white text-gray-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'
-              }`}
             >Text</button>
             <button
+              ref={el => { tabRefs.current[1] = el; }}
+              className={activeTab === 'changes' ? 'on' : ''}
               onClick={() => setActiveTab('changes')}
-              className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all duration-200 ${
-                activeTab === 'changes' ? 'bg-white text-gray-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'
-              }`}
             >Diff</button>
+            <span className="ink" style={{ left: inkStyle.left, width: inkStyle.width }} />
           </div>
         </div>
         <div className="flex items-center gap-2.5">

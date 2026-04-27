@@ -179,6 +179,176 @@ textarea:focus { outline: none; }
 /* ── Global ── */
 body { line-height: 1.7; }
 
+/* ── Wordmark ── */
+@keyframes wm-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+@keyframes wm-sweep {
+  0%        { transform: translateX(-100%); }
+  50%, 100% { transform: translateX(120%); }
+}
+@keyframes wm-pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6); }
+  50%      { box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); }
+}
+.wm-mark {
+  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(135deg, #4338ca 0%, #6d28d9 50%, #8b5cf6 100%);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  position: relative; overflow: hidden;
+}
+.wm-mark::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.4) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: wm-sweep 4s ease-in-out infinite;
+}
+.wm-me {
+  font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 400;
+  background: linear-gradient(125deg, #c4b5fd 0%, #e9d5ff 40%, #fef3c7 75%, #fde68a 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(196, 181, 253, 0.5));
+  animation: wm-shimmer 4s ease-in-out infinite;
+  margin-left: 2px;
+}
+.wm-dot {
+  width: 6px; height: 6px; border-radius: 999px; background: #34d399;
+  margin-left: 8px; align-self: center; flex-shrink: 0;
+  animation: wm-pulse-dot 2s ease-in-out infinite;
+}
+
+/* ── Control: dark rail (Mode) ── */
+.ctl-rail {
+  position: relative; height: 36px; padding: 3px;
+  background: linear-gradient(180deg, #1d1934 0%, #14122a 100%);
+  border-radius: 9999px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.5), inset 0 -1px 0 rgba(255,255,255,0.04), 0 1px 0 rgba(255,255,255,0.6);
+  display: flex; min-width: 196px;
+}
+.ctl-rail .puck {
+  position: absolute; top: 3px; bottom: 3px; width: calc(50% - 4px);
+  background: linear-gradient(180deg, #ffffff 0%, #f1f0f8 100%);
+  border-radius: 9999px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,0.04);
+  transition: left 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ctl-rail button {
+  flex: 1; position: relative; z-index: 2; background: transparent; border: none;
+  font-family: inherit; font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,0.42);
+  cursor: pointer; border-radius: 9999px; transition: color 0.25s; letter-spacing: -0.005em;
+  padding: 0;
+}
+.ctl-rail button.on { color: #14122a; }
+.ctl-rail button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Control: tick scale (Imperfections) ── */
+.ctl-scale {
+  position: relative; height: 36px;
+  background: linear-gradient(180deg, #ffffff, #fafbfd);
+  border-radius: 12px; border: 1px solid rgba(15,12,40,0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 1px 0 rgba(15,12,40,0.04);
+  padding: 0 16px; display: flex; align-items: center; min-width: 220px;
+}
+.ctl-scale .ticks {
+  position: relative; flex: 1; height: 100%;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.ctl-scale .ticks button {
+  background: transparent; border: none; font-family: inherit;
+  font-size: 10px; font-weight: 600; color: #9ca3af;
+  text-transform: capitalize; cursor: pointer; padding: 6px 8px;
+  position: relative; z-index: 2; transition: color 0.2s;
+}
+.ctl-scale .ticks button.on { color: #1d1934; }
+.ctl-scale .ticks button:disabled { opacity: 0.4; cursor: not-allowed; }
+.ctl-scale .rule {
+  position: absolute; left: 16px; right: 16px; bottom: 8px; height: 1px;
+  background: rgba(15,12,40,0.08);
+}
+.ctl-scale .pin {
+  position: absolute; bottom: 4px; width: 36px; height: 8px;
+  background: linear-gradient(180deg, #6d28d9, #4338ca); border-radius: 2px;
+  box-shadow: 0 2px 6px rgba(124,58,237,0.4), 0 0 0 2px rgba(124,58,237,0.08);
+  transform: translateX(-50%);
+  transition: left 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Control: pearl pills (Burstiness) ── */
+.ctl-pills {
+  display: inline-flex; gap: 4px; padding: 4px;
+  background: rgba(15,12,40,0.04); border-radius: 11px;
+}
+.ctl-pills button {
+  background: transparent; border: none; font-family: inherit;
+  font-size: 11px; font-weight: 600; color: #6b7280;
+  padding: 7px 14px; border-radius: 8px; cursor: pointer;
+  text-transform: capitalize; transition: all 0.25s;
+}
+.ctl-pills button.on {
+  background: #ffffff; color: #1d1934;
+  box-shadow: 0 1px 2px rgba(15,12,40,0.06), 0 0 0 0.5px rgba(15,12,40,0.04), inset 0 1px 0 rgba(255,255,255,1);
+}
+.ctl-pills button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Control: dark toggle switch (Spacing) ── */
+.ctl-switch {
+  position: relative; width: 40px; height: 22px; border-radius: 9999px;
+  background: #e5e7eb; border: none; cursor: pointer; padding: 0; flex-shrink: 0;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.6);
+  transition: background 0.3s;
+}
+.ctl-switch.on {
+  background: linear-gradient(180deg, #312e81, #4338ca);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.6), 0 0 0 0.5px rgba(15,12,40,0.06);
+}
+.ctl-switch .thumb {
+  position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  background: linear-gradient(180deg, #ffffff, #f1f0f8); border-radius: 9999px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,1);
+  transition: left 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ctl-switch.on .thumb { left: 21px; }
+.ctl-switch:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Control: monospace stops (LO/MD/HI) ── */
+.ctl-stops {
+  display: inline-flex; gap: 2px; padding: 3px 4px;
+  background: #fafbfd; border: 1px solid rgba(15,12,40,0.08); border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+}
+.ctl-stops button {
+  background: transparent; border: none;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 10px; font-weight: 700; color: #9ca3af; letter-spacing: 0.04em;
+  padding: 4px 8px; border-radius: 5px; cursor: pointer; transition: all 0.2s;
+}
+.ctl-stops button.on {
+  background: linear-gradient(180deg, #1d1934, #14122a); color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.ctl-stops button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Control: underline tabs (Text/Diff) ── */
+.ctl-tabs {
+  position: relative; display: inline-flex; gap: 26px;
+  border-bottom: 1px solid rgba(15,12,40,0.08); padding-bottom: 8px;
+}
+.ctl-tabs button {
+  background: transparent; border: none; padding: 0; font-family: inherit;
+  font-size: 11.5px; font-weight: 600; color: #9ca3af; cursor: pointer;
+  transition: color 0.2s;
+}
+.ctl-tabs button.on { color: #1d1934; }
+.ctl-tabs .ink {
+  position: absolute; bottom: -1px; height: 2px; width: 28px;
+  background: linear-gradient(90deg, #6d28d9, #a855f7); border-radius: 999px;
+  box-shadow: 0 1px 6px rgba(124, 58, 237, 0.45);
+  transition: left 0.35s cubic-bezier(0.22, 1, 0.36, 1), width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* ── Pipeline reactor ── */
 @keyframes reactor-pulse {
   0%, 100% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
@@ -192,6 +362,24 @@ body { line-height: 1.7; }
   0%   { background-position: -800px 0; }
   100% { background-position:  800px 0; }
 }
+
+/* ── Glossy active stage specular ── */
+.stage-gloss {
+  position: absolute; inset: 0; border-radius: 14px; pointer-events: none; z-index: 1;
+  background: linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 52%);
+  border-top: 1px solid rgba(255,255,255,0.88);
+}
+
+/* ── Status badges ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border-radius: 9999px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.01em;
+}
+.badge-ok   { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.badge-warn { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+.badge-danger { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
+.badge-info { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
 
 /* ── Output shimmer loading ── */
 .output-shimmer-icon {

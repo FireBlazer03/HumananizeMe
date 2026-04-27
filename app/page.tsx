@@ -151,7 +151,18 @@ export default function Home() {
         <nav className="relative z-10 max-w-6xl mx-auto px-6 pt-6 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-white font-semibold text-base tracking-tight">HumanizeAI</span>
+              {/* M-mark icon */}
+              <div className="wm-mark">
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                  <path d="M2 14V4L9 10L16 4V14" stroke="white" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              {/* Wordmark */}
+              <div className="flex items-center">
+                <span className="text-white font-semibold text-base tracking-tight">Humanize</span>
+                <span className="wm-me text-base font-normal">Me</span>
+                <span className="wm-dot" />
+              </div>
               <span className="text-[9px] font-medium text-violet-300/60 bg-white/[0.06] px-2 py-0.5 rounded-full border border-white/[0.08] uppercase tracking-widest">
                 Beta
               </span>

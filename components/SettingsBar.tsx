@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useEffect, useState } from 'react';
 import { HumanizerSettings, ImperfectionLevel, BurstinessMode, SpacingIntensity } from '@/types';
 
 interface SettingsBarProps {
@@ -11,36 +12,13 @@ interface SettingsBarProps {
   hasInput: boolean;
 }
 
-function SegmentGroup<T extends string>({
-  options,
-  value,
-  onChange,
-  disabled,
-}: {
-  options: T[];
-  value: T;
-  onChange: (v: T) => void;
-  disabled: boolean;
-}) {
-  return (
-    <div className="flex bg-gray-100/70 rounded-lg p-0.5">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          onClick={() => onChange(opt)}
-          disabled={disabled}
-          className={`px-3 py-1.5 text-[11px] font-medium rounded-md capitalize transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-            value === opt
-              ? 'bg-white text-gray-800 shadow-sm'
-              : 'text-gray-400 hover:text-gray-600'
-          }`}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  );
-}
+const IMPERFECTION_LEVELS: ImperfectionLevel[] = ['subtle', 'moderate', 'realistic'];
+const BURSTINESS_MODES: BurstinessMode[] = ['mild', 'strong', 'aggressive'];
+const SPACING_STOPS: { label: string; value: SpacingIntensity }[] = [
+  { label: 'LO', value: 'low' },
+  { label: 'MD', value: 'medium' },
+  { label: 'HI', value: 'high' },
+];
 
 export default function SettingsBar({
   settings,
@@ -50,39 +28,39 @@ export default function SettingsBar({
   isProcessing,
   hasInput,
 }: SettingsBarProps) {
-  const imperfectionLevels: ImperfectionLevel[] = ['subtle', 'moderate', 'realistic'];
-  const burstinessModes: BurstinessMode[] = ['mild', 'strong', 'aggressive'];
+  const impBtnRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [pinLeft, setPinLeft] = useState<string>('50%');
+
+  useEffect(() => {
+    const idx = IMPERFECTION_LEVELS.indexOf(settings.imperfectionLevel);
+    const btn = impBtnRefs.current[idx];
+    if (btn) {
+      setPinLeft(`${btn.offsetLeft + btn.offsetWidth / 2}px`);
+    }
+  }, [settings.imperfectionLevel]);
 
   return (
     <div className="space-y-5">
       {/* Row 1: Mode + Actions */}
       <div className="flex flex-wrap items-center gap-4">
-        {/* Mode */}
+        {/* Mode — dark graphite rail */}
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em]">Mode</span>
-          <div className="flex bg-gray-100/70 rounded-lg p-0.5">
+          <div className="ctl-rail">
+            <div
+              className="puck"
+              style={{ left: settings.professionalMode ? 'calc(50% + 1px)' : '3px' }}
+            />
             <button
+              className={!settings.professionalMode ? 'on' : ''}
               onClick={() => onSettingsChange({ ...settings, professionalMode: false })}
               disabled={isProcessing}
-              className={`px-4 py-2 text-xs font-medium rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-                !settings.professionalMode
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              Natural
-            </button>
+            >Natural</button>
             <button
+              className={settings.professionalMode ? 'on' : ''}
               onClick={() => onSettingsChange({ ...settings, professionalMode: true })}
               disabled={isProcessing}
-              className={`px-4 py-2 text-xs font-medium rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-                settings.professionalMode
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              Professional
-            </button>
+            >Professional</button>
           </div>
         </div>
 
@@ -94,9 +72,7 @@ export default function SettingsBar({
             onClick={onClear}
             disabled={isProcessing}
             className="px-4 py-2.5 text-xs font-medium text-gray-400 hover:text-gray-600 bg-transparent border border-gray-200 rounded-full hover:border-gray-300 active:scale-[0.97] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Clear
-          </button>
+          >Clear</button>
           <button
             onClick={onHumanize}
             disabled={!hasInput || isProcessing}
@@ -122,35 +98,50 @@ export default function SettingsBar({
         </div>
       </div>
 
-      {/* Separator */}
       <div className="h-px bg-gray-100" />
 
-      {/* Row 2: Fine-tuning */}
+      {/* Row 2: Fine-tuning controls */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        {/* Imperfections — tick scale */}
         <div className="flex items-center gap-2.5">
           <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em]">Imperfections</label>
-          <SegmentGroup
-            options={imperfectionLevels}
-            value={settings.imperfectionLevel}
-            onChange={(v) => onSettingsChange({ ...settings, imperfectionLevel: v })}
-            disabled={isProcessing}
-          />
+          <div className="ctl-scale">
+            <div className="rule" />
+            <div className="pin" style={{ left: pinLeft }} />
+            <div className="ticks">
+              {IMPERFECTION_LEVELS.map((level, i) => (
+                <button
+                  key={level}
+                  ref={el => { impBtnRefs.current[i] = el; }}
+                  className={settings.imperfectionLevel === level ? 'on' : ''}
+                  onClick={() => onSettingsChange({ ...settings, imperfectionLevel: level })}
+                  disabled={isProcessing}
+                >{level}</button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="hidden sm:block w-px h-5 bg-gray-150" />
+        <div className="hidden sm:block w-px h-5 bg-gray-100" />
 
+        {/* Burstiness — pearl pills */}
         <div className="flex items-center gap-2.5">
           <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em]">Burstiness</label>
-          <SegmentGroup
-            options={burstinessModes}
-            value={settings.burstinessMode}
-            onChange={(v) => onSettingsChange({ ...settings, burstinessMode: v })}
-            disabled={isProcessing}
-          />
+          <div className="ctl-pills">
+            {BURSTINESS_MODES.map((mode) => (
+              <button
+                key={mode}
+                className={settings.burstinessMode === mode ? 'on' : ''}
+                onClick={() => onSettingsChange({ ...settings, burstinessMode: mode })}
+                disabled={isProcessing}
+              >{mode}</button>
+            ))}
+          </div>
         </div>
 
-        <div className="hidden sm:block w-px h-5 bg-gray-150" />
+        <div className="hidden sm:block w-px h-5 bg-gray-100" />
 
+        {/* Spacing — dark toggle + LO/MD/HI stops */}
         <div className="flex items-center gap-2.5">
           <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em]">Spacing</label>
           <button
@@ -159,25 +150,21 @@ export default function SettingsBar({
             aria-checked={settings.randomSpacingEnabled}
             onClick={() => onSettingsChange({ ...settings, randomSpacingEnabled: !settings.randomSpacingEnabled })}
             disabled={isProcessing}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-300 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${
-              settings.randomSpacingEnabled ? 'bg-indigo-500' : 'bg-gray-200'
-            }`}
+            className={`ctl-switch${settings.randomSpacingEnabled ? ' on' : ''}`}
           >
-            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-all duration-300 ${
-              settings.randomSpacingEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'
-            }`} />
+            <span className="thumb" />
           </button>
           {settings.randomSpacingEnabled && (
-            <select
-              value={settings.randomSpacingIntensity}
-              onChange={(e) => onSettingsChange({ ...settings, randomSpacingIntensity: e.target.value as SpacingIntensity })}
-              disabled={isProcessing || settings.professionalMode}
-              className="px-2.5 py-1 text-[11px] font-medium border border-gray-200 rounded-lg bg-white text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all duration-200 disabled:opacity-40"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
+            <div className="ctl-stops">
+              {SPACING_STOPS.map(({ label, value }) => (
+                <button
+                  key={value}
+                  className={settings.randomSpacingIntensity === value ? 'on' : ''}
+                  onClick={() => onSettingsChange({ ...settings, randomSpacingIntensity: value })}
+                  disabled={isProcessing || settings.professionalMode}
+                >{label}</button>
+              ))}
+            </div>
           )}
         </div>
       </div>

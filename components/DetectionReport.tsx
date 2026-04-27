@@ -7,31 +7,39 @@ interface DetectionReportProps {
   report: DetectionReportType | null;
 }
 
-function getScoreInfo(score: number): { label: string; color: string } {
-  if (score >= 70) return { label: 'Almost certainly AI', color: '#e24b4a' };
-  if (score >= 45) return { label: 'Likely AI-assisted', color: '#ef9f27' };
-  if (score >= 25) return { label: 'Mostly human', color: '#97c459' };
-  return { label: 'Looks human', color: '#22c55e' };
+function getScoreInfo(score: number): { label: string; badge: string } {
+  if (score >= 70) return { label: 'Almost certainly AI', badge: 'badge badge-danger' };
+  if (score >= 45) return { label: 'Likely AI-assisted', badge: 'badge badge-warn' };
+  if (score >= 25) return { label: 'Mostly human', badge: 'badge badge-info' };
+  return { label: 'Looks human', badge: 'badge badge-ok' };
+}
+
+function getScoreColor(score: number): string {
+  if (score >= 70) return '#e24b4a';
+  if (score >= 45) return '#ef9f27';
+  if (score >= 25) return '#6366f1';
+  return '#22c55e';
 }
 
 function ScoreMeter({ score }: { score: number }) {
-  const info = getScoreInfo(score);
+  const color = getScoreColor(score);
   const radius = 34;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
+  const info = getScoreInfo(score);
 
   return (
     <div className="flex items-center gap-4">
       <svg width="76" height="76" viewBox="0 0 76 76">
         <circle cx="38" cy="38" r={radius} fill="none" stroke="#f3f4f6" strokeWidth="5" />
-        <circle cx="38" cy="38" r={radius} fill="none" stroke={info.color} strokeWidth="5"
+        <circle cx="38" cy="38" r={radius} fill="none" stroke={color} strokeWidth="5"
           strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
           transform="rotate(-90 38 38)" className="transition-all duration-700 ease-out" />
         <text x="38" y="38" textAnchor="middle" dominantBaseline="central"
-          fontSize="16" fontWeight="600" fill={info.color}>{score}</text>
+          fontSize="16" fontWeight="600" fill={color}>{score}</text>
       </svg>
       <div>
-        <div style={{ color: info.color }} className="text-sm font-semibold">{info.label}</div>
+        <div style={{ color }} className="text-sm font-semibold">{info.label}</div>
         <div className="text-[11px] text-gray-400 mt-0.5">AI Detection Score</div>
       </div>
     </div>
@@ -40,17 +48,20 @@ function ScoreMeter({ score }: { score: number }) {
 
 function SignalBar({ name, score, maxScore, detail }: { name: string; score: number; maxScore: number; detail: string }) {
   const pct = maxScore > 0 ? Math.max(0, (score / maxScore) * 100) : 0;
-  const barColor = score <= 0 ? 'bg-emerald-400' : score < maxScore * 0.5 ? 'bg-amber-400' : 'bg-red-400';
+  const barColor = score <= 0 ? '#34d399' : score < maxScore * 0.5 ? '#fbbf24' : '#f87171';
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between text-[11px]">
-        <span className="font-medium text-gray-600">{name}</span>
+        <span className="font-semibold text-gray-600">{name}</span>
         <span className="text-gray-300 font-mono tabular-nums">+{Math.max(0, score)}/{maxScore}</span>
       </div>
-      <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
-        <div className={`h-full ${barColor} rounded-full transition-all duration-700 ease-out`} style={{ width: `${pct}%` }} />
+      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-700 ease-out"
+          style={{ width: `${pct}%`, background: barColor }}
+        />
       </div>
-      <div className="text-[10px] text-gray-400">{detail}</div>
+      <div className="text-[10px] text-gray-400 leading-snug">{detail}</div>
     </div>
   );
 }
@@ -60,6 +71,8 @@ export default function DetectionReport({ report }: DetectionReportProps) {
 
   if (!report) return null;
 
+  const info = getScoreInfo(report.estimatedAIScore);
+
   return (
     <div className="rounded-2xl inner-card overflow-hidden animate-fade-in">
       <button
@@ -68,10 +81,7 @@ export default function DetectionReport({ report }: DetectionReportProps) {
       >
         <div className="flex items-center gap-3">
           <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em]">Detection Report</h3>
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-            style={{ color: getScoreInfo(report.estimatedAIScore).color, backgroundColor: `${getScoreInfo(report.estimatedAIScore).color}10` }}>
-            {report.estimatedAIScore}
-          </span>
+          <span className={info.badge}>{report.estimatedAIScore}</span>
         </div>
         <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -98,8 +108,8 @@ export default function DetectionReport({ report }: DetectionReportProps) {
 
           {report.signals && report.signals.length > 0 && (
             <div>
-              <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em] mb-2.5">Signals</h4>
-              <div className="space-y-3">
+              <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.15em] mb-3">Signals</h4>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                 {report.signals.map((signal, i) => (
                   <SignalBar key={i} name={signal.name} score={signal.score} maxScore={signal.maxScore} detail={signal.detail} />
                 ))}
