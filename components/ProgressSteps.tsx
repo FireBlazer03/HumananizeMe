@@ -104,12 +104,19 @@ export default function ProgressSteps({ steps, visible }: ProgressStepsProps) {
                 {/* Stage number (Instrument Serif italic) */}
                 <span
                   className="absolute -top-[9px] left-3 font-display italic text-lg leading-none px-1.5"
-                  style={{
-                    color: stageState === 'done' ? '#10b981' : stageState === 'active' ? '#4338ca' : '#c4b5fd',
-                    background: '#f8f9fc',
-                  }}
+                  style={{ background: '#f8f9fc', zIndex: 2 }}
                 >
-                  {stage.num}
+                  {isStageActive ? (
+                    <span style={{
+                      background: 'linear-gradient(135deg, #4338ca 0%, #7c3aed 55%, #a855f7 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                      filter: 'drop-shadow(0 0 5px rgba(99,102,241,0.38))',
+                    }}>{stage.num}</span>
+                  ) : (
+                    <span style={{ color: stageState === 'done' ? '#10b981' : '#c4b5fd' }}>{stage.num}</span>
+                  )}
                 </span>
 
                 {/* Inner content raised above gloss */}
